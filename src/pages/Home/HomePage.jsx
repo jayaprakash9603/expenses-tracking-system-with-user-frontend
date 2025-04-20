@@ -70,9 +70,39 @@ const HomePage = () => {
           }}
         >
           {/* Left Side: Logout */}
+          <button
+            style={{
+              padding: "10px 20px",
+              fontSize: "16px",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+              backgroundColor: "#007bff",
+              color: "white",
+            }}
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
 
           {/* Right Side: Upload and Reports */}
           <div>
+            <button
+              style={{
+                padding: "10px 20px",
+                fontSize: "16px",
+                marginRight: "10px",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+                backgroundColor: "#28a745",
+                color: "white",
+              }}
+              onClick={() => navigate("/upload")}
+            >
+              Upload Files
+            </button>
+
             <Link
               to="/reports"
               style={{
@@ -88,20 +118,6 @@ const HomePage = () => {
               Reports
             </Link>
           </div>
-          <button
-            style={{
-              padding: "10px 20px",
-              fontSize: "16px",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-              backgroundColor: "#007bff",
-              color: "white",
-            }}
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
         </div>
       </div>
 
@@ -134,21 +150,6 @@ const HomePage = () => {
             <i className="bi bi-plus"></i>
           </Link>
         </div>
-        <button
-          style={{
-            padding: "10px 20px",
-            fontSize: "16px",
-            marginRight: "10px",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-            backgroundColor: "#28a745",
-            color: "white",
-          }}
-          onClick={() => navigate("/upload")}
-        >
-          Upload File
-        </button>{" "}
       </div>
       {expenses.length === 0 ? (
         <p>No expenses available.</p>
