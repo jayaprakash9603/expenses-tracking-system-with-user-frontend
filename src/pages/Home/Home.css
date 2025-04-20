@@ -10,7 +10,6 @@ body {
   /* padding: 20px; */
 }
 
-
 .filter-container {
   display: flex;
   gap: 10px;
@@ -71,8 +70,8 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #007bff;
-  border-radius: 10px;
+  /* background-color: #007bff; */
+  border-radius: 1px;
 }
 
 ::-webkit-scrollbar-thumb:hover {

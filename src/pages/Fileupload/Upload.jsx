@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from "react";
 import FileUploadModal from "../Fileupload/FileUploadModal";
 import { useSelector } from "react-redux";
-import { CSVLink } from "react-csv";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileCsv } from "@fortawesome/free-solid-svg-icons";
-import UploadExpensesTable from "../Upload Expenses Table/UploadExpensesTable";
+import DetailedExpensesTable from "../DetailedExpensesTable copy/DetailsExpensesTable";
 
 const Upload = () => {
-  const [isModalOpen, setModalOpen] = useState(true);
+  const [isModalOpen, setModalOpen] = useState(false);
   const [uploadedData, setUploadedData] = useState([]);
+  const [isTableVisible, setIsTableVisible] = useState(true);
 
   const {
     success = false,
@@ -21,59 +19,61 @@ const Upload = () => {
   useEffect(() => {
     if (success && data?.length) {
       setUploadedData(data);
-      setModalOpen(false);
+      setIsTableVisible(true);
     }
   }, [success, data]);
 
-  const csvHeaders = [
-    { label: "Date", key: "date" },
-    { label: "Expense Name", key: "expense.expenseName" },
-    { label: "Amount", key: "expense.amount" },
-    { label: "Type", key: "expense.type" },
-    { label: "Payment Method", key: "expense.paymentMethod" },
-    { label: "Net Amount", key: "expense.netAmount" },
-    { label: "Credit Due", key: "expense.creditDue" },
-    { label: "Comments", key: "expense.comments" },
-  ];
+  const toggleTableVisibility = () => {
+    setIsTableVisible(false);
+  };
 
-  const flattenDataForCSV = uploadedData.map((item) => ({
-    date: item.date,
-    "expense.expenseName": item.expense.expenseName,
-    "expense.amount": item.expense.amount,
-    "expense.type": item.expense.type,
-    "expense.paymentMethod": item.expense.paymentMethod,
-    "expense.netAmount": item.expense.netAmount,
-    "expense.creditDue": item.expense.creditDue,
-    "expense.comments": item.expense.comments,
-  }));
+  const openUploadModal = () => {
+    setModalOpen(true);
+  };
 
   return (
-    <div className="container">
-      <h3>Upload Files</h3>
-      <FileUploadModal isOpen={isModalOpen} onClose={closeModal} />
+    <div className="min-vh-100">
+      <div className="card shadow w-100 position-relative">
+        {uploadedData.length > 0 && isTableVisible ? (
+          <div>
+            {/* X button at top right */}
+            <div className="position-relative d-flex justify-content-center">
+              {/* Close button in top-right corner */}
+              <button
+                className="btn btn-sm btn-danger position-absolute"
+                style={{ top: "30px", right: "200px", zIndex: 1 }}
+                onClick={toggleTableVisibility}
+                title="Close Table"
+              >
+                X
+              </button>
 
-      {uploadedData.length > 0 && (
-        <>
-          <div className="d-flex justify-content-between align-items-center my-3">
-            <h5 className="mb-0">Uploaded Records</h5>
-            <CSVLink
-              headers={csvHeaders}
-              data={flattenDataForCSV}
-              filename="uploaded_expenses.csv"
-              className="btn btn-success"
-            >
-              <FontAwesomeIcon icon={faFileCsv} className="me-2" />
-              Export CSV
-            </CSVLink>
+              <div className="table-responsive" style={{ maxWidth: "90%" }}>
+                <DetailedExpensesTable
+                  data={uploadedData}
+                  loading={false}
+                  error={error}
+                />
+              </div>
+            </div>
           </div>
+        ) : (
+          <div
+            className="d-flex justify-content-center align-items-center"
+            style={{ height: "100vh" }}
+          >
+            <button
+              className="btn btn-primary"
+              onClick={openUploadModal}
+              style={{ fontSize: "20px", padding: "15px 30px" }}
+            >
+              Upload Expense File
+            </button>
+          </div>
+        )}
 
-          <UploadExpensesTable
-            data={uploadedData}
-            loading={false}
-            error={error}
-          />
-        </>
-      )}
+        <FileUploadModal isOpen={isModalOpen} onClose={closeModal} />
+      </div>
     </div>
   );
 };

@@ -20,6 +20,9 @@ import {
   GET_EXPENSE_REQUEST,
   GET_EXPENSE_SUCCESS,
   RESET_UPLOAD_STATE,
+  SAVE_EXPENSES_FAILURE,
+  SAVE_EXPENSES_REQUEST,
+  SAVE_EXPENSES_SUCCESS,
   UPLOAD_FILE_FAILURE,
   UPLOAD_FILE_REQUEST,
   UPLOAD_FILE_SUCCESS,
@@ -215,3 +218,43 @@ export const uploadFile = (file) => async (dispatch) => {
 export const resetUploadState = () => ({
   type: RESET_UPLOAD_STATE,
 });
+
+export const saveExpensesRequest = () => ({
+  type: SAVE_EXPENSES_REQUEST,
+});
+
+export const saveExpensesSuccess = (data) => ({
+  type: SAVE_EXPENSES_SUCCESS,
+  payload: data,
+});
+
+export const saveExpensesFailure = (error) => ({
+  type: SAVE_EXPENSES_FAILURE,
+  payload: error,
+});
+
+export const saveExpenses = (expenses) => {
+  console.log("saved exepsens", expenses);
+  return async (dispatch) => {
+    dispatch(saveExpensesRequest());
+    try {
+      const response = await fetch("http://localhost:8080/api/expenses/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(expenses),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save expenses");
+      }
+
+      const data = await response.json();
+      dispatch(saveExpensesSuccess(data));
+    } catch (error) {
+      dispatch(saveExpensesFailure(error.message));
+    }
+  };
+};

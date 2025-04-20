@@ -49,23 +49,63 @@ const HomePage = () => {
 
   return (
     <div className="container">
-      <div>
-        <h2>Monthly Expenses</h2>
-        <button className="btn btn-primary" onClick={handleLogout}>
-          Logout
-        </button>
-        {/* Use the navigate method to redirect to /upload */}
-        <button onClick={() => navigate("/upload")}>Upload Files</button>
+      <div style={{ padding: "20px" }}>
+        <h2
+          style={{
+            fontSize: "24px",
+            fontWeight: "bold",
+            marginBottom: "20px",
+            color: "#333",
+          }}
+        >
+          Monthly Expenses
+        </h2>
 
-        <div className="d-flex justify-content-between mb-3">
-          <div className="createButton">
-            <Link className="btn btn-primary" to="/reports">
-              <i className="bi bi-plus"></i>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+          }}
+        >
+          {/* Left Side: Logout */}
+
+          {/* Right Side: Upload and Reports */}
+          <div>
+            <Link
+              to="/reports"
+              style={{
+                backgroundColor: "#ffc107",
+                color: "white",
+                padding: "10px 15px",
+                borderRadius: "5px",
+                fontSize: "16px",
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              Reports
             </Link>
           </div>
+          <button
+            style={{
+              padding: "10px 20px",
+              fontSize: "16px",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+              backgroundColor: "#007bff",
+              color: "white",
+            }}
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
         </div>
       </div>
-      <div className="d-flex justify-content-between align-items-center mb-3 bg-info-subtle">
+
+      <div className="d-flex justify-content-between align-items-center mb-3">
         <div
           className="d-flex align-items-center mt-3"
           style={{ width: "50%" }}
@@ -94,6 +134,21 @@ const HomePage = () => {
             <i className="bi bi-plus"></i>
           </Link>
         </div>
+        <button
+          style={{
+            padding: "10px 20px",
+            fontSize: "16px",
+            marginRight: "10px",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+            backgroundColor: "#28a745",
+            color: "white",
+          }}
+          onClick={() => navigate("/upload")}
+        >
+          Upload File
+        </button>{" "}
       </div>
       {expenses.length === 0 ? (
         <p>No expenses available.</p>

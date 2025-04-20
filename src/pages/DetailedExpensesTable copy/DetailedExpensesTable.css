@@ -1,8 +1,7 @@
 .table-container {
   width: 79vw;
-  height: 100vh;
+  height: 80vh;
   margin-left: 10px;
-  /* padding: 15px; */
   border-radius: 8px;
   background-color: #fbfbfb;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -17,42 +16,32 @@
   height: 77vh;
   border-collapse: collapse;
   margin: 20px 0;
-  table-layout: auto;
+  table-layout: fixed; /* Ensures equal column width */
   overflow-y: auto;
   display: block;
 }
+.invisible {
+  visibility: hidden;
+}
 
-.filter-input {
-  width: 100px;
-  padding: 6px;
-  border: 1px solid #ccc;
-  margin: 0;
-  border-radius: 4px;
-  font-size: 12px;
-  box-sizing: border-box;
-  outline: none;
+.summary-header-text {
+  font-size: 24px;
+  font-weight: bold;
 }
-.toggle-btn {
-  outline: none;
-  border: none;
-  padding: 15px 20px;
-  background-color: aquamarine;
-  border-radius: 5px;
-}
-.clear-filters-btn {
-  outline: none;
-  border: none;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 5px;
-  margin-left: auto;
-  background-color: cornflowerblue;
-}
+
 .top-buttons {
-  display: flex;
-  align-items: center;
-  justify-content: right;
+  padding: 10px;
 }
+
+.budget-table th,
+.budget-table td {
+  padding: 12px 15px;
+  text-align: left;
+  font-size: 14px;
+  white-space: nowrap;
+  border-bottom: 1px solid #ddd;
+}
+
 .budget-table th {
   background-color: #344849;
   color: #ffffff;
@@ -61,37 +50,11 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 12px 15px;
-  text-align: left;
-  font-size: 14px;
-  white-space: nowrap;
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.budget-table::-webkit-scrollbar {
-  width: 2px;
-}
-
-.budget-table::-webkit-scrollbar-thumb {
-  background-color: red;
-  margin-left: 20px;
-  border-radius: 10px;
-}
-
-.budget-table::-webkit-scrollbar-track {
-  background-color: transparent;
 }
 
 .budget-table td {
   background-color: #ffffff;
   color: #444;
-  border-bottom: 1px solid #ddd;
-  padding: 12px 15px;
-  text-align: left;
-  font-size: 14px;
-  white-space: nowrap;
-  width: 20%;
 }
 
 .budget-table td,
@@ -101,35 +64,6 @@
   text-overflow: ellipsis;
   word-wrap: break-word;
   max-width: 200px;
-}
-
-.budget-table td:nth-child(1),
-.budget-table th:nth-child(1) {
-  width: 120px;
-}
-
-.budget-table td:nth-child(4),
-.budget-table th:nth-child(4) {
-  width: 100px;
-}
-
-.budget-table td:nth-child(2),
-.budget-table th:nth-child(2) {
-}
-
-.budget-table td:nth-child(5),
-.budget-table th:nth-child(5) {
-  width: 200px;
-}
-
-.budget-table td:nth-child(3),
-.budget-table th:nth-child(3) {
-  width: 200px;
-}
-
-.budget-table td:nth-child(6),
-.budget-table th:nth-child(6) {
-  min-width: 200px;
 }
 
 .filter-row {
@@ -160,7 +94,6 @@
   padding: 10px 0;
   z-index: 1;
 }
-
 .pagination button {
   background-color: #344849;
   color: #fff;
@@ -202,36 +135,22 @@
   width: 150px;
 }
 
-.sorted-asc {
-  transform: rotate(180deg);
-  transition: transform 0.2s ease;
-}
-
-.sorted-desc {
-  transform: rotate(0deg);
-  transition: transform 0.2s ease;
-}
 .loader-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh; /* Full viewport height */
+  height: 100vh;
   width: 100%;
-  position: fixed; /* Keeps it in the center of the screen */
+  position: fixed;
   top: 0;
   left: 0;
-  background-color: rgba(
-    255,
-    255,
-    255,
-    0.9
-  ); /* Optional background for better visibility */
-  z-index: 9999; /* Ensures it's above other elements */
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 9999;
 }
 
 .loader {
-  border: 8px solid #f3f3f3; /* Light gray */
-  border-top: 8px solid #3498db; /* Blue */
+  border: 8px solid #f3f3f3;
+  border-top: 8px solid #3498db;
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -246,19 +165,23 @@
     transform: rotate(360deg);
   }
 }
+
 .main-text {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+
 .clear-all-text {
   color: #2874f0;
   cursor: pointer;
 }
+
 .filters-text {
   color: #212121;
   font-weight: 700;
 }
+
 .clear-all-btn {
   color: #2874f0;
   margin-left: auto;

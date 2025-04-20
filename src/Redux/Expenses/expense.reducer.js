@@ -16,6 +16,9 @@ import {
   GET_EXPENSE_REQUEST,
   GET_EXPENSE_SUCCESS,
   RESET_UPLOAD_STATE,
+  SAVE_EXPENSES_FAILURE,
+  SAVE_EXPENSES_REQUEST,
+  SAVE_EXPENSES_SUCCESS,
   UPLOAD_FILE_FAILURE,
   UPLOAD_FILE_REQUEST,
   UPLOAD_FILE_SUCCESS,
@@ -113,6 +116,19 @@ export const uploadReducer = (state = initialState, action) => {
       return { ...state, loading: false, error: action.payload };
     case RESET_UPLOAD_STATE:
       return initialState;
+    default:
+      return state;
+  }
+};
+
+export const saveExpensesReducer = (state = initialState, action) => {
+  switch (action.type) {
+    case SAVE_EXPENSES_REQUEST:
+      return { ...state, loading: true, error: null };
+    case SAVE_EXPENSES_SUCCESS:
+      return { ...state, loading: false, savedExpenses: action.payload };
+    case SAVE_EXPENSES_FAILURE:
+      return { ...state, loading: false, error: action.payload };
     default:
       return state;
   }
