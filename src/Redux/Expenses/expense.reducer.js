@@ -15,6 +15,10 @@ import {
   GET_EXPENSE_FAILURE,
   GET_EXPENSE_REQUEST,
   GET_EXPENSE_SUCCESS,
+  RESET_UPLOAD_STATE,
+  UPLOAD_FILE_FAILURE,
+  UPLOAD_FILE_REQUEST,
+  UPLOAD_FILE_SUCCESS,
 } from "./expense.actionType";
 
 const initialState = {
@@ -23,6 +27,8 @@ const initialState = {
   expense: null, // For single expense
   loading: false,
   error: null,
+  uploadSuccess: false,
+  uploadError: null,
 };
 
 export const expenseReducer = (state = initialState, action) => {
@@ -92,6 +98,21 @@ export const expenseReducer = (state = initialState, action) => {
       };
 
     // Default case
+    default:
+      return state;
+  }
+};
+
+export const uploadReducer = (state = initialState, action) => {
+  switch (action.type) {
+    case UPLOAD_FILE_REQUEST:
+      return { ...state, loading: true, error: null, success: false };
+    case UPLOAD_FILE_SUCCESS:
+      return { ...state, loading: false, success: true, data: action.payload };
+    case UPLOAD_FILE_FAILURE:
+      return { ...state, loading: false, error: action.payload };
+    case RESET_UPLOAD_STATE:
+      return initialState;
     default:
       return state;
   }

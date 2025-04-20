@@ -19,6 +19,10 @@ import {
   GET_EXPENSE_FAILURE,
   GET_EXPENSE_REQUEST,
   GET_EXPENSE_SUCCESS,
+  RESET_UPLOAD_STATE,
+  UPLOAD_FILE_FAILURE,
+  UPLOAD_FILE_REQUEST,
+  UPLOAD_FILE_SUCCESS,
 } from "./expense.actionType";
 
 const token = localStorage.getItem("jwt");
@@ -178,3 +182,36 @@ export const fetchPreviousExpenses =
       });
     }
   };
+
+export const uploadFile = (file) => async (dispatch) => {
+  dispatch({ type: UPLOAD_FILE_REQUEST });
+
+  const token = localStorage.getItem("jwt");
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const response = await fetch("http://localhost:8080/api/expenses/upload", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || "Upload failed");
+    }
+
+    const result = await response.json();
+    console.log(result);
+    dispatch({ type: UPLOAD_FILE_SUCCESS, payload: result });
+  } catch (error) {
+    dispatch({ type: UPLOAD_FILE_FAILURE, payload: error.message });
+  }
+};
+
+export const resetUploadState = () => ({
+  type: RESET_UPLOAD_STATE,
+});

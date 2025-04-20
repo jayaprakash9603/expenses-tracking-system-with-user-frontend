@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import useAuthentication from "./useAuthentication";
 import useExpenses from "./useExpenses";
-
 import ErrorMessage from "./ErrorMessage";
 import "../Home/Home.css";
 import FilteredTable from "./FilteredTable";
@@ -12,7 +11,7 @@ import FilterComponent from "../Filter/FilterComponent";
 import { logoutAction } from "../../Redux/Auth/auth.action";
 import { getExpensesAction } from "../../Redux/Expenses/expense.action";
 import ReportsGeneration from "../ReportsGeneration";
-// Ensure this import exists
+// Removed FileUploadModal import since it's now handled in /upload route
 
 const HomePage = () => {
   const jwt = localStorage.getItem("jwt");
@@ -32,22 +31,12 @@ const HomePage = () => {
       dispatch(getExpensesAction(jwt, sortOrder));
     }
   }, [dispatch, jwt, sortOrder]);
+
   // Redirect if there's an authentication error
   if (authError && !user) {
     navigate("/login");
   }
 
-  // if (loadingAuth) {
-  //   return <Loader />;
-  // }
-
-  // if (loading) {
-  //   return <Loader />;
-  // }
-
-  if (error) {
-    return <ErrorMessage error={error} />;
-  }
   const handleSortOrderChange = (e) => {
     setSortOrder(e.target.value);
     dispatch(getExpensesAction(localStorage.getItem("jwt"), e.target.value));
@@ -55,9 +44,9 @@ const HomePage = () => {
 
   const handleLogout = () => {
     dispatch(logoutAction());
-
     navigate("/");
   };
+
   return (
     <div className="container">
       <div>
@@ -65,6 +54,9 @@ const HomePage = () => {
         <button className="btn btn-primary" onClick={handleLogout}>
           Logout
         </button>
+        {/* Use the navigate method to redirect to /upload */}
+        <button onClick={() => navigate("/upload")}>Upload Files</button>
+
         <div className="d-flex justify-content-between mb-3">
           <div className="createButton">
             <Link className="btn btn-primary" to="/reports">
@@ -106,10 +98,7 @@ const HomePage = () => {
       {expenses.length === 0 ? (
         <p>No expenses available.</p>
       ) : (
-        <>
-          {/* {console.log(expenses)} */}
-          <FilteredTable filteredData={filteredData} />
-        </>
+        <FilteredTable filteredData={filteredData} />
       )}
     </div>
   );
