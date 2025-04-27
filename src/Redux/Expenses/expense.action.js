@@ -1,5 +1,5 @@
 import axios from "axios";
-import { api } from "../../config/api";
+import { api, API_BASE_URL } from "../../config/api";
 import {
   CREATE_EXPENSE_FAILURE,
   CREATE_EXPENSE_REQUEST,
@@ -162,7 +162,7 @@ export const fetchPreviousExpenses =
 
     try {
       const response = await axios.get(
-        `http://localhost:8080/api/expenses/before/${expenseName}/${date}`,
+        `${API_BASE_URL}/api/expenses/before/${expenseName}/${date}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -194,7 +194,7 @@ export const uploadFile = (file) => async (dispatch) => {
   formData.append("file", file);
 
   try {
-    const response = await fetch("http://localhost:8080/api/expenses/upload", {
+    const response = await fetch(`${API_BASE_URL}/api/expenses/upload`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -238,7 +238,7 @@ export const saveExpenses = (expenses) => {
   return async (dispatch) => {
     dispatch(saveExpensesRequest());
     try {
-      const response = await fetch("http://localhost:8080/api/expenses/save", {
+      const response = await fetch(`${API_BASE_URL}/api/expenses/save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

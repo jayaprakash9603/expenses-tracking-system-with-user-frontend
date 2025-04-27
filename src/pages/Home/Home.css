@@ -112,3 +112,30 @@ body {
   background-color: #fefefe;
   border-radius: 8px;
 }
+
+.sort-order-container {
+  display: flex;
+  align-items: center;
+}
+
+.sort-order-select {
+  background-color: white;
+  border: 1px solid #ced4da;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  min-width: 140px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sort-order-select:hover {
+  border-color: #86b7fe;
+  box-shadow: 0 0 5px rgba(13, 110, 253, 0.25);
+}
+
+.sort-order-select:focus {
+  outline: none;
+  border-color: #86b7fe;
+  box-shadow: 0 0 5px rgba(13, 110, 253, 0.4);
+}

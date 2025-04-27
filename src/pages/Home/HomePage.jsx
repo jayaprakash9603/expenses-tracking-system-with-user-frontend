@@ -24,6 +24,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [sortOrder, setSortOrder] = useState("");
+  const [sortLoading, setSortLoading] = useState(false);
 
   useEffect(() => {
     if (jwt) {
@@ -37,9 +38,18 @@ const HomePage = () => {
     navigate("/login");
   }
 
-  const handleSortOrderChange = (e) => {
-    setSortOrder(e.target.value);
-    dispatch(getExpensesAction(localStorage.getItem("jwt"), e.target.value));
+  const handleSortOrderChange = async (e) => {
+    const selectedOrder = e.target.value;
+    setSortOrder(selectedOrder);
+    setSortLoading(true); // start loading
+
+    try {
+      await dispatch(
+        getExpensesAction(localStorage.getItem("jwt"), selectedOrder)
+      );
+    } finally {
+      setSortLoading(false); // stop loading
+    }
   };
 
   const handleLogout = () => {
@@ -131,17 +141,20 @@ const HomePage = () => {
             setFilteredData={setFilteredData}
           />
         </div>
-        <div>
+        <div className="sort-order-container">
           <select
             id="sortOrder"
-            className="form-select w-auto"
+            className="sort-order-select"
             value={sortOrder}
             onChange={handleSortOrderChange}
+            disabled={sortLoading}
           >
             <option value="">Sort By</option>
             <option value="asc">Ascending</option>
             <option value="desc">Descending</option>
           </select>
+
+          {sortLoading && <Loader />}
         </div>
       </div>
       <div className="d-flex justify-content-between mb-3">
