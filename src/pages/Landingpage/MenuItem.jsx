@@ -7,9 +7,19 @@ const MenuItem = ({ name, path, icon }) => {
 
   const isActive = location.pathname === path;
 
+  const handleClick = () => {
+    if (path === "/expenses") {
+      // Pass state to indicate navigation is from the left sidebar
+      navigate(path, { state: { fromMenu: true } });
+    } else {
+      // Regular navigation for other paths
+      navigate(path);
+    }
+  };
+
   return (
     <div
-      onClick={() => navigate(path)}
+      onClick={handleClick}
       className={`flex items-center justify-start w-[300px] h-[55px] mb-4 cursor-pointer rounded-lg overflow-hidden transition-all duration-200 ${
         isActive ? "bg-[#29282b] text-[#00DAC6] font-bold" : "text-white"
       }`}

@@ -17,6 +17,7 @@ import ExpensesContent from "./pages/Landingpage/ExpensesContent";
 import TransactionsContent from "./pages/Landingpage/TransactionsContent";
 import CreditDueContent from "./pages/Landingpage/CreditDueContent";
 import SettingsContent from "./pages/Landingpage/SettingsContent";
+import Budget from "./pages/Landingpage/Budget";
 
 function App() {
   const { auth } = useSelector((store) => store);
@@ -55,9 +56,11 @@ function App() {
           <Route index element={<Navigate to="/home" />} />
           <Route path="home" element={<HomeContent />} />
           <Route path="expenses" element={<ExpensesContent />} />
+
           <Route path="transactions" element={<TransactionsContent />} />
           <Route path="credit-due" element={<CreditDueContent />} />
           <Route path="settings" element={<SettingsContent />} />
+          <Route path="budget" element={<Budget />} />
         </Route>
         <Route path="/create" element={<CreateExpenses />} />
         <Route path="/edit/:id" element={<EditExpense />} />

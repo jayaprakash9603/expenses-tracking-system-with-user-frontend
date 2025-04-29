@@ -45,6 +45,11 @@ const Left = () => {
             path="/settings"
             icon="https://cdn-icons-png.flaticon.com/128/3094/3094851.png"
           />
+          <MenuItem
+            name="Budget"
+            path="/budget"
+            icon="https://cdn-icons-png.flaticon.com/128/2488/2488980.png"
+          />
         </div>
       </div>
 
