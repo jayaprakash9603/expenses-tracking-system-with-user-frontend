@@ -43,7 +43,7 @@ export const getExpensesAction =
     }
 
     try {
-      const { data } = await api.get(`/api/expenses/groupedByDate`, {
+      const { data } = await api.get(`/api/expenses/fetch-expenses`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

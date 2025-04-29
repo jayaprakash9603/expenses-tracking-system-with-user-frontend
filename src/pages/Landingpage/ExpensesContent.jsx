@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import NewExpense from "./NewExpense";
-import SummaryView from "./SummaryView";
 import { Snackbar, Alert } from "@mui/material";
+import ExpensesView from "./ExpensesView";
 
 const ExpensesContent = () => {
   const location = useLocation();
@@ -56,7 +56,7 @@ const ExpensesContent = () => {
             {console.log("expense details", message)}
           </div>
         ) : (
-          <SummaryView />
+          <ExpensesView onNewExpenseClick={() => setShowExpenseForm(true)} />
         )}
       </div>
 

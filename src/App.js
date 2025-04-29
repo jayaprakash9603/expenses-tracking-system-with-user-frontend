@@ -16,7 +16,7 @@ import HomeContent from "./pages/Landingpage/HomeContent";
 import ExpensesContent from "./pages/Landingpage/ExpensesContent";
 import TransactionsContent from "./pages/Landingpage/TransactionsContent";
 import CreditDueContent from "./pages/Landingpage/CreditDueContent";
-import SettingsContent from "./pages/Landingpage/SettingsContent";
+import History from "./pages/Landingpage/History";
 import Budget from "./pages/Landingpage/Budget";
 
 function App() {
@@ -59,7 +59,7 @@ function App() {
 
           <Route path="transactions" element={<TransactionsContent />} />
           <Route path="credit-due" element={<CreditDueContent />} />
-          <Route path="settings" element={<SettingsContent />} />
+          <Route path="settings" element={<History />} />
           <Route path="budget" element={<Budget />} />
         </Route>
         <Route path="/create" element={<CreateExpenses />} />

@@ -1,8 +1,10 @@
 import React from "react";
 import { Avatar } from "@mui/material";
 import MenuItem from "./MenuItem";
+import { useSelector } from "react-redux";
 
 const Left = () => {
+  const { user } = useSelector((state) => state.auth);
   return (
     <div className="w-full md:w-[350px] bg-[#1b1b1b] min-h-screen text-white flex flex-col justify-between items-center py-6">
       {/* Top Section */}
@@ -15,7 +17,10 @@ const Left = () => {
               src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=2070&auto=format&fit=crop"
             />
           </div>
-          <p className="text-lg font-semibold">Go Fardon</p>
+          <p className="text-lg font-semibold">
+            {user.firstName.charAt(0).toUpperCase() + user.firstName.slice(1)}{" "}
+            {user.lastName.charAt(0).toUpperCase() + user.lastName.slice(1)}
+          </p>
         </div>
 
         {/* Menu Items */}

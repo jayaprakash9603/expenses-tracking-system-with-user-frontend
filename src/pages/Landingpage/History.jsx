@@ -1,6 +1,6 @@
 import React from "react";
 
-const SettingsContent = () => {
+const History = () => {
   return (
     <div className="bg-[#1b1b1b]">
       <div className="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>
@@ -22,4 +22,4 @@ const SettingsContent = () => {
   );
 };
 
-export default SettingsContent;
+export default History;
