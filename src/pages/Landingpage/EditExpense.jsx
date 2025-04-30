@@ -114,7 +114,7 @@ const EditExpense = ({}) => {
         // Show toast and navigate
         setToastMessage("Expense updated successfully!");
         setOpenToast(true);
-        navigate(-1, {
+        navigate("/", {
           state: { successMessage: "Expense updated successfully!" },
         });
       })
@@ -207,7 +207,7 @@ const EditExpense = ({}) => {
   );
 
   const handleOnClose = () => {
-    navigate(-1);
+    navigate("/");
   };
 
   return (

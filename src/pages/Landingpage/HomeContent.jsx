@@ -5,6 +5,7 @@ import { getExpensesSummaryAction } from "../../Redux/Expenses/expense.action";
 import RecentExpenses from "./RecentExpenses";
 import Overview from "./Overview";
 import QuickAccess from "./QuickAccess";
+import MonthlyReport from "./MonthlyReport";
 
 const HomeContent = () => {
   const dispatch = useDispatch();
@@ -45,41 +46,7 @@ const HomeContent = () => {
         <QuickAccess />
 
         {/* Fourth box - same width as third (1420px) */}
-        <div
-          style={{
-            marginTop: "20px",
-            width: "1460px",
-            height: "260px",
-            borderRadius: "8px",
-            border: "1px solid rgb(80, 80, 80)",
-            backgroundColor: "rgb(27, 27, 27)",
-            borderRadius: "8px",
-            boxShadow: "rgba(0, 0, 0, 0.08) 0px 0px 0px",
-            border: "1px solid rgb(56, 56, 56)",
-            opacity: 1,
-            padding: "16px",
-          }}
-        >
-          <div style={{ width: "100%" }}>
-            <p
-              style={{
-                color: "white",
-                fontWeight: "bold",
-                fontSize: "18px",
-                marginBottom: "2px",
-              }}
-            >
-              Monthly Report
-            </p>
-            <hr
-              style={{
-                border: "none",
-                borderTop: "1px solid rgb(80, 80, 80)",
-                width: "100%",
-              }}
-            />
-          </div>
-        </div>
+        <MonthlyReport />
       </div>
 
       <div className="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>

@@ -25,6 +25,12 @@ import {
   GET_EXPENSE_SUMMARY_FAILURE,
   GET_EXPENSE_SUMMARY_REQUEST,
   GET_EXPENSE_SUMMARY_SUCCESS,
+  GET_EXPENSES_HISTORY_FAILURE,
+  GET_EXPENSES_HISTORY_REQUEST,
+  GET_EXPENSES_HISTORY_SUCCESS,
+  GET_EXPENSES_SUGGESTIONS_FAILURE,
+  GET_EXPENSES_SUGGESTIONS_REQUEST,
+  GET_EXPENSES_SUGGESTIONS_SUCCESS,
   RESET_UPLOAD_STATE,
   SAVE_EXPENSES_FAILURE,
   SAVE_EXPENSES_REQUEST,
@@ -58,12 +64,41 @@ export const getExpensesAction =
         },
       });
 
+      console.log("all expenses", data);
       dispatch({ type: GET_ALL_EXPENSES_SUCCESS, payload: data });
     } catch (error) {
       console.log("Error fetching expenses: ", error);
       dispatch({ type: GET_ALL_EXPENSES_FAILURE, payload: error });
     }
   };
+
+export const getExpensesSuggestions = () => async (dispatch) => {
+  dispatch({ type: GET_EXPENSES_SUGGESTIONS_REQUEST });
+
+  const token = localStorage.getItem("jwt"); // ✅ move inside the function
+
+  if (!token) {
+    console.error("JWT not found in localStorage");
+    dispatch({
+      type: GET_EXPENSES_SUGGESTIONS_FAILURE,
+      payload: "JWT not found",
+    });
+    return;
+  }
+
+  try {
+    const { data } = await api.get(`/api/expenses/top-expense-names?topN=500`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    dispatch({ type: GET_EXPENSES_SUGGESTIONS_SUCCESS, payload: data });
+  } catch (error) {
+    console.log("Error fetching expenses names ", error);
+    dispatch({ type: GET_EXPENSES_SUGGESTIONS_FAILURE, payload: error });
+  }
+};
 
 export const getHomeExpensesAction =
   (jwt, sortOrder = "desc") =>
@@ -142,6 +177,31 @@ export const getExpenseAction = (id) => async (dispatch) => {
   } catch (error) {
     console.log("error user expense error ", error);
     dispatch({ type: GET_EXPENSE_FAILURE, payload: error });
+  }
+};
+
+export const getExpenseHistory = () => async (dispatch) => {
+  dispatch({ type: GET_EXPENSES_HISTORY_REQUEST });
+
+  const jwt = localStorage.getItem("jwt");
+
+  if (!jwt) {
+    console.error("JWT not found in localStorage");
+    dispatch({ type: GET_EXPENSES_HISTORY_FAILURE, payload: "JWT not found" });
+    return;
+  }
+
+  try {
+    const { data } = await api.get(`/api/audit-logs/all`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+    });
+    dispatch({ type: GET_EXPENSES_HISTORY_SUCCESS, payload: data });
+    console.log("get users expense", data);
+  } catch (error) {
+    console.log("error user expense error ", error);
+    dispatch({ type: GET_EXPENSES_HISTORY_FAILURE, payload: error });
   }
 };
 export const createExpenseAction = (expenseData) => async (dispatch) => {

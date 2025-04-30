@@ -1,9 +1,12 @@
-import React, { useState } from "react";
-import { useDispatch } from "react-redux";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   createExpenseAction,
   fetchPreviousExpenses,
+  getExpensesSuggestions,
 } from "../../Redux/Expenses/expense.action";
+import { Autocomplete, TextField, CircularProgress } from "@mui/material";
+import axios from "axios";
 
 const fieldStyles =
   "px-6 py-3 rounded bg-[#29282b] text-white border border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00dac6] w-[400px]";
@@ -12,10 +15,9 @@ const formRow = "mt-6 w-full flex flex-col items-start";
 const inputWrapper = { width: "180px" };
 
 const NewExpense = ({ onClose, onSuccess }) => {
-  // onSuccess prop added
-  // Set default date to today
   const today = new Date().toISOString().split("T")[0];
-
+  const { topExpenses, loading } = useSelector((state) => state.expenses || {});
+  const dispatch = useDispatch();
   const [expenseData, setExpenseData] = useState({
     expenseName: "",
     amount: "",
@@ -23,12 +25,44 @@ const NewExpense = ({ onClose, onSuccess }) => {
     paymentMethod: "cash",
     transactionType: "loss",
     comments: "",
-    date: today, // Default date set to today's date
+    date: today,
     creditDue: "",
   });
 
+  // useEffect(() => {
+  //   dispatch(getExpensesSuggestions());
+  // }, []);
   const [errors, setErrors] = useState({});
-  const dispatch = useDispatch();
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  const fetchSuggestions = (query) => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    setLoadingSuggestions(true);
+
+    const filtered = topExpenses.filter((item) =>
+      item.toLowerCase().includes(query.toLowerCase())
+    );
+
+    setSuggestions(filtered);
+    setLoadingSuggestions(false);
+  };
+  const highlightText = (text, inputValue) => {
+    const regex = new RegExp(`(${inputValue})`, "gi");
+    return text.split(regex).map((part, index) =>
+      part.toLowerCase() === inputValue.toLowerCase() ? (
+        <span key={index} style={{ fontWeight: 700, color: "#00b8a0" }}>
+          {part}
+        </span>
+      ) : (
+        part
+      )
+    );
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -39,33 +73,25 @@ const NewExpense = ({ onClose, onSuccess }) => {
     const { value } = e.target;
     const newDate = new Date(value);
 
-    // Get the last day of the month for the selected date
     const lastDayOfMonth = new Date(
       newDate.getFullYear(),
       newDate.getMonth() + 1,
       0
     );
 
-    // Default salary date is the last day of the month
     let salaryDate = new Date(lastDayOfMonth);
-
-    // Adjust salary date if it's a weekend
     if (salaryDate.getDay() === 6) {
-      // If it's Saturday, adjust to Friday
       salaryDate.setDate(salaryDate.getDate() - 1);
     } else if (salaryDate.getDay() === 0) {
-      // If it's Sunday, adjust to Friday
       salaryDate.setDate(salaryDate.getDate() - 2);
     }
 
-    // Check if the selected date matches the salary date
     const isSalary = newDate.toDateString() === salaryDate.toDateString();
 
-    // Update the state with the new date and transaction type
     setExpenseData((prevState) => ({
       ...prevState,
       date: value,
-      transactionType: isSalary ? "gain" : "loss", // Ensure type is set correctly
+      transactionType: isSalary ? "gain" : "loss",
     }));
   };
 
@@ -93,9 +119,10 @@ const NewExpense = ({ onClose, onSuccess }) => {
         },
       })
     );
+
     onClose();
     if (onSuccess) {
-      onSuccess("Expense created successfully!"); // Send success message to parent
+      onSuccess("Expense created successfully!");
     }
   };
 
@@ -173,11 +200,116 @@ const NewExpense = ({ onClose, onSuccess }) => {
           className={fieldStyles}
         />
       </div>
-      <div className="flex justify-between w-full">
-        {errors.date && (
-          <span className="text-red-500 text-sm">{errors.date}</span>
-        )}
+      {errors.date && (
+        <span className="text-red-500 text-sm ml-[210px]">{errors.date}</span>
+      )}
+    </div>
+  );
+
+  const renderExpenseNameWithSuggestions = () => (
+    <div className={formRow}>
+      <div className="flex items-center w-full">
+        <label
+          htmlFor="expenseName"
+          className={labelStyle}
+          style={inputWrapper}
+        >
+          Expense Name
+        </label>
+        <Autocomplete
+          freeSolo
+          autoHighlight
+          options={suggestions}
+          loading={loadingSuggestions}
+          value={expenseData.expenseName}
+          onInputChange={(event, newValue) => {
+            setExpenseData((prev) => ({ ...prev, expenseName: newValue }));
+            fetchSuggestions(newValue);
+          }}
+          onFocus={() => {
+            if (expenseData.expenseName) {
+              fetchSuggestions(expenseData.expenseName);
+            }
+          }}
+          onChange={(event, newValue) => {
+            setExpenseData((prev) => ({ ...prev, expenseName: newValue }));
+          }}
+          openOnFocus
+          sx={{
+            width: "400px",
+            // Styling the input box
+            "& .MuiInputBase-root": {
+              backgroundColor: "#29282b",
+              color: "white",
+            },
+            // Outline styling for the input field
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#444",
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#00dac6",
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#00dac6",
+            },
+            // Styling the dropdown listbox
+            "& .MuiAutocomplete-listbox": {
+              backgroundColor: "#29282b",
+              color: "white",
+            },
+            // Styling individual options in the dropdown
+            "& .MuiAutocomplete-option": {
+              backgroundColor: "transparent", // Default background for options
+              color: "white", // Ensuring the text is white
+              "&[aria-selected='true']": {
+                backgroundColor: "#00dac6", // Highlight selected option
+              },
+              "&:hover": {
+                backgroundColor: "#444", // Hover effect for options
+              },
+            },
+            // Clear and popup indicators
+            "& .MuiAutocomplete-clearIndicator": {
+              color: "white", // Clear icon color
+            },
+            "& .MuiAutocomplete-popupIndicator": {
+              color: "white", // Popup indicator color
+            },
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Enter expense name"
+              variant="outlined"
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {loadingSuggestions ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
+          renderOption={(props, option, { inputValue }) => {
+            const { key, ...optionProps } = props;
+
+            return (
+              <li key={key} {...optionProps}>
+                <div>{highlightText(option, inputValue)}</div>
+              </li>
+            );
+          }}
+        />
       </div>
+      {errors.expenseName && (
+        <span className="text-red-500 text-sm ml-[210px]">
+          {errors.expenseName}
+        </span>
+      )}
     </div>
   );
 
@@ -205,7 +337,7 @@ const NewExpense = ({ onClose, onSuccess }) => {
       </div>
       <hr className="border-t border-gray-600 w-full mt-[-4px]" />
 
-      {renderInput("expenseName")}
+      {renderExpenseNameWithSuggestions()}
       {renderInput("amount", "number")}
       {renderCustomDateInput()}
       {renderSelect("transactionType", ["gain", "loss"])}

@@ -27,7 +27,7 @@ const ExpensesTable = () => {
   }, [dispatch]);
 
   {
-    console.log(expenses);
+    console.log("Expenses from store:", expenses);
   }
   const handleToastClose = () => {
     setToastOpen(false);
@@ -37,7 +37,7 @@ const ExpensesTable = () => {
   // Map expenses to rows
   const rows = Array.isArray(expenses)
     ? expenses.map((item, index) => ({
-        id: index,
+        id: item.id,
         date: item.date,
         ...item.expense,
         expenseId: item.id,

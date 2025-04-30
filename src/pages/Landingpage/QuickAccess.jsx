@@ -3,6 +3,7 @@ import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router";
 import {
   getExpensesAction,
+  getExpensesSuggestions,
   getHomeExpensesAction,
 } from "../../Redux/Expenses/expense.action";
 
@@ -10,6 +11,9 @@ const QuickAccess = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const handleClick = (route) => {
+    if (route == "/expenses") {
+      dispatch(getExpensesSuggestions());
+    }
     navigate(route);
   };
 
