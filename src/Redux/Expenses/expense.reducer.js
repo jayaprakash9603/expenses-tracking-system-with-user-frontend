@@ -12,9 +12,14 @@ import {
   GET_ALL_EXPENSES_FAILURE,
   GET_ALL_EXPENSES_REQUEST,
   GET_ALL_EXPENSES_SUCCESS,
+  GET_DATE_EXPENSES_FAILURE,
+  GET_DATE_EXPENSES_REQUEST,
+  GET_DATE_EXPENSES_SUCCESS,
   GET_EXPENSE_FAILURE,
   GET_EXPENSE_REQUEST,
   GET_EXPENSE_SUCCESS,
+  GET_EXPENSE_SUMMARY_REQUEST,
+  GET_EXPENSE_SUMMARY_SUCCESS,
   RESET_UPLOAD_STATE,
   SAVE_EXPENSES_FAILURE,
   SAVE_EXPENSES_REQUEST,
@@ -32,6 +37,8 @@ const initialState = {
   error: null,
   uploadSuccess: false,
   uploadError: null,
+  summary: {},
+  expensesBydate: [],
 };
 
 export const expenseReducer = (state = initialState, action) => {
@@ -42,6 +49,8 @@ export const expenseReducer = (state = initialState, action) => {
     case UPDATE_PROFILE_REQUEST:
     case GET_EXPENSE_REQUEST:
     case DELETE_EXPENSE_REQUEST:
+    case GET_DATE_EXPENSES_REQUEST:
+    case GET_EXPENSE_SUMMARY_REQUEST:
       return { ...state, error: null, loading: true };
 
     // Success actions
@@ -52,6 +61,13 @@ export const expenseReducer = (state = initialState, action) => {
         loading: false,
         error: null,
       };
+    case GET_DATE_EXPENSES_SUCCESS:
+      return {
+        ...state,
+        expensesBydate: action.payload,
+        loading: false,
+        error: null,
+      };
     case CREATE_EXPENSE_SUCCESS:
       return {
         ...state,
@@ -59,6 +75,14 @@ export const expenseReducer = (state = initialState, action) => {
         loading: false,
         error: null,
       };
+    case GET_EXPENSE_SUMMARY_SUCCESS:
+      return {
+        ...state,
+        summary: action.payload, // ✅ CORRECT
+        loading: false,
+        error: null,
+      };
+
     case GET_EXPENSE_SUCCESS:
       return { ...state, expense: action.payload, loading: false, error: null };
     case DELETE_EXPENSE_SUCCESS:
@@ -81,6 +105,7 @@ export const expenseReducer = (state = initialState, action) => {
     case GET_ALL_EXPENSES_FAILURE:
     case GET_EXPENSE_FAILURE:
     case DELETE_EXPENSE_FAILURE:
+    case GET_DATE_EXPENSES_FAILURE:
       return { ...state, error: action.payload, loading: false };
     case FETCH_PREVIOUS_EXPENSES_REQUEST:
       return {

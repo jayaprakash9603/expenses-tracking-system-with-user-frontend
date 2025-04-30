@@ -8,7 +8,6 @@ import { getProfileAction } from "./Redux/Auth/auth.action";
 import Parent from "./pages/DetailedExpensesTable/Parent";
 import Loader from "./components/Loaders/Loader";
 import CreateExpenses from "./components/CreateExpenses/CreateExpenses";
-import EditExpense from "./pages/EditExpenses/EditExpense";
 import ReportsGeneration from "./pages/ReportsGeneration";
 import Upload from "./pages/Fileupload/Upload"; // Import Upload component
 import Home from "./pages/Landingpage/Home";
@@ -18,6 +17,7 @@ import TransactionsContent from "./pages/Landingpage/TransactionsContent";
 import CreditDueContent from "./pages/Landingpage/CreditDueContent";
 import History from "./pages/Landingpage/History";
 import Budget from "./pages/Landingpage/Budget";
+import EditExpense from "./pages/Landingpage/EditExpense";
 
 function App() {
   const { auth } = useSelector((store) => store);
@@ -51,23 +51,26 @@ function App() {
   return (
     <div className="">
       <Routes>
-        {/* <Route path="/" element={<HomePage />} /> */}
+        <Route path="/main" element={<HomePage />} />
         <Route path="/" element={<Home />}>
           <Route index element={<Navigate to="/home" />} />
           <Route path="home" element={<HomeContent />} />
-          <Route path="expenses" element={<ExpensesContent />} />
+
+          {/* Nested expenses route */}
+          <Route path="expenses">
+            <Route index element={<ExpensesContent />} />
+            <Route path="edit/:id" element={<EditExpense />} />
+          </Route>
 
           <Route path="transactions" element={<TransactionsContent />} />
           <Route path="credit-due" element={<CreditDueContent />} />
           <Route path="settings" element={<History />} />
           <Route path="budget" element={<Budget />} />
         </Route>
+
         <Route path="/create" element={<CreateExpenses />} />
-        <Route path="/edit/:id" element={<EditExpense />} />
         <Route path="/reports" element={<ReportsGeneration />} />
-        <Route path="/upload" element={<Upload />} />{" "}
-        {/* Add the Upload route */}
-        {/* Add any other routes here that need protection */}
+        <Route path="/upload" element={<Upload />} />
       </Routes>
     </div>
   );
