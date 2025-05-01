@@ -99,7 +99,7 @@ const QuickAccess = () => {
             top: "447px",
             left: "393px",
           }}
-          onClick={() => handleClick("/main")}
+          onClick={() => handleClick("/upload")}
         >
           <div className="w-[48px] h-[48px] bg-[#124241] rounded-full flex items-center justify-center">
             <img

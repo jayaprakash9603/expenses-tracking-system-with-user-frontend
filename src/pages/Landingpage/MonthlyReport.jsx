@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import {
   LineChart,
   Line,
@@ -14,46 +15,124 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { API_BASE_URL } from "../../config/api";
 
 const MonthlyReport = () => {
-  // Data for the last 3 months and top 3 categories
-  const expenseData = [
-    { date: "2025-04-01", food: 50, entertainment: 30, bills: 100 },
-    { date: "2025-03-01", food: 40, entertainment: 40, bills: 90 },
-    { date: "2025-02-01", food: 60, entertainment: 20, bills: 110 },
-  ];
+  const [dailySpendingData, setDailySpendingData] = useState([]);
+  const [monthlySpendingIncomeData, setMonthlySpendingIncomeData] = useState(
+    []
+  );
+  const [pieData, setPieData] = useState([]);
+  const [error, setError] = useState(null);
+  const token = localStorage.getItem("jwt");
 
-  // Top 3 categories (you can decide based on your data)
-  const pieData = [
-    { name: "Food", value: 150 },
-    { name: "Entertainment", value: 90 },
-    { name: "Bills", value: 300 },
-  ];
+  // Color palette for charts
+  const colorPalette = ["#8884d8", "#82ca9d", "#ff7300", "#FF6B6B", "#4ECDC4"];
+
+  useEffect(() => {
+    if (!token) {
+      setError("Please log in to view the monthly report.");
+      return;
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const fetchData = async () => {
+      try {
+        const [spendingRes, totalsRes, distributionRes] = await Promise.all([
+          axios.get(
+            `${API_BASE_URL}/api/expenses/current-month/daily-spending`,
+            { headers }
+          ),
+          axios.get(`${API_BASE_URL}/api/expenses/current-month/totals`, {
+            headers,
+          }),
+          axios.get(`${API_BASE_URL}/api/expenses/current-month/distribution`, {
+            headers,
+          }),
+        ]);
+
+        setDailySpendingData(spendingRes.data);
+        setMonthlySpendingIncomeData(totalsRes.data);
+        setPieData(distributionRes.data);
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching monthly report data:", error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem("jwt");
+          window.location.href = "/login";
+        } else {
+          setError("Failed to load monthly report. Please try again.");
+        }
+      }
+    };
+
+    fetchData();
+  }, [token]);
+
+  // Custom label renderer for Pie Chart to ensure white text
+  const renderCustomLabel = ({
+    cx,
+    cy,
+    midAngle,
+    innerRadius,
+    outerRadius,
+    percent,
+    name,
+  }) => {
+    const radius = innerRadius + (outerRadius - innerRadius) * 1.2;
+    const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+    const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#ffffff"
+        textAnchor={x > cx ? "start" : "end"}
+        dominantBaseline="central"
+        style={{ fontSize: 12 }}
+      >
+        {`${name} (${(percent * 100).toFixed(0)}%)`}
+      </text>
+    );
+  };
 
   return (
     <div
       style={{
         marginTop: "20px",
         width: "1460px",
-        height: "400px", // Adjusted height for more space
+        height: "250px",
         borderRadius: "8px",
         border: "1px solid rgb(80, 80, 80)",
         backgroundColor: "rgb(27, 27, 27)",
         boxShadow: "rgba(0, 0, 0, 0.08) 0px 0px 0px",
-        padding: "16px",
+        // padding: "16px",
       }}
     >
-      {/* Container for all charts */}
+      {error && (
+        <div
+          style={{
+            color: "#ffffff",
+            textAlign: "center",
+            marginBottom: "10px",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          marginTop: "20px", // Adjusted margin-top for better positioning
-          flexWrap: "wrap", // Allows wrapping on smaller screens
-          height: "80%", // Full height of the container
+          marginTop: "20px",
+          flexWrap: "wrap",
+          height: "80%",
         }}
       >
-        {/* Line Chart - Trend over the last 3 months */}
+        {/* Line Chart - Daily Spending */}
         <div
           style={{
             flex: "1 1 30%",
@@ -69,29 +148,50 @@ const MonthlyReport = () => {
         >
           <p
             style={{
-              color: "white",
+              color: "#ffffff",
               fontWeight: "bold",
               marginBottom: "10px",
               textAlign: "center",
             }}
           >
-            Expense Trend
+            Daily Spending (May 2025)
           </p>
           <ResponsiveContainer width="100%" height="80%">
-            <LineChart data={expenseData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="food" stroke="#8884d8" />
-              <Line type="monotone" dataKey="entertainment" stroke="#82ca9d" />
-              <Line type="monotone" dataKey="bills" stroke="#ff7300" />
-            </LineChart>
+            {dailySpendingData.length > 0 ? (
+              <LineChart data={dailySpendingData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                <XAxis
+                  dataKey="day"
+                  stroke="#ffffff"
+                  tick={{ fill: "#ffffff" }}
+                  tickFormatter={(value) => value.split("-")[2]}
+                />
+                <YAxis stroke="#ffffff" tick={{ fill: "#ffffff" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#333",
+                    border: "1px solid #444",
+                    color: "#ffffff",
+                  }}
+                  itemStyle={{ color: "#ffffff" }}
+                />
+                <Legend wrapperStyle={{ color: "#ffffff" }} />
+                <Line
+                  type="monotone"
+                  dataKey="spending"
+                  stroke="#FF6B6B"
+                  name="Spending"
+                />
+              </LineChart>
+            ) : (
+              <p style={{ color: "#ffffff", textAlign: "center" }}>
+                {error ? "Error loading data" : "Loading..."}
+              </p>
+            )}
           </ResponsiveContainer>
         </div>
 
-        {/* Bar Chart - Breakdown for the last 3 months */}
+        {/* Bar Chart - Monthly Spending vs Income */}
         <div
           style={{
             flex: "1 1 30%",
@@ -107,29 +207,51 @@ const MonthlyReport = () => {
         >
           <p
             style={{
-              color: "white",
+              color: "#ffffff",
               fontWeight: "bold",
               marginBottom: "10px",
               textAlign: "center",
             }}
           >
-            Monthly Expense Breakdown
+            Monthly Spending vs Income (May 2025)
           </p>
           <ResponsiveContainer width="100%" height="80%">
-            <BarChart data={expenseData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="food" fill="#8884d8" />
-              <Bar dataKey="entertainment" fill="#82ca9d" />
-              <Bar dataKey="bills" fill="#ff7300" />
-            </BarChart>
+            {monthlySpendingIncomeData.length > 0 ? (
+              <BarChart data={monthlySpendingIncomeData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                <XAxis
+                  dataKey="name"
+                  stroke="#ffffff"
+                  tick={{ fill: "#ffffff" }}
+                />
+                <YAxis stroke="#ffffff" tick={{ fill: "#ffffff" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#333",
+                    border: "1px solid #444",
+                    color: "#ffffff",
+                  }}
+                  itemStyle={{ color: "#ffffff" }}
+                />
+                <Legend wrapperStyle={{ color: "#ffffff" }} />
+                <Bar dataKey="value" name="Amount">
+                  {monthlySpendingIncomeData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.name === "Spending" ? "#FF6B6B" : "#4ECDC4"}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            ) : (
+              <p style={{ color: "#ffffff", textAlign: "center" }}>
+                {error ? "Error loading data" : "Loading..."}
+              </p>
+            )}
           </ResponsiveContainer>
         </div>
 
-        {/* Pie Chart - Expense Distribution for top 3 categories */}
+        {/* Pie Chart - Expense Distribution */}
         <div
           style={{
             flex: "1 1 30%",
@@ -144,38 +266,46 @@ const MonthlyReport = () => {
         >
           <p
             style={{
-              color: "white",
+              color: "#ffffff",
               fontWeight: "bold",
               marginBottom: "10px",
               textAlign: "center",
             }}
           >
-            Expense Distribution
+            Expense Distribution (May 2025)
           </p>
           <ResponsiveContainer width="100%" height="80%">
-            <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={60}
-                label
-                labelLine={false}
-              >
-                {pieData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={
-                      index === 0
-                        ? "#8884d8"
-                        : index === 1
-                        ? "#82ca9d"
-                        : "#ff7300"
-                    }
-                  />
-                ))}
-              </Pie>
-            </PieChart>
+            {pieData.length > 0 ? (
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={60}
+                  label={renderCustomLabel}
+                  labelLine={false}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={colorPalette[index % colorPalette.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#333",
+                    border: "1px solid #444",
+                    color: "#ffffff",
+                  }}
+                  itemStyle={{ color: "#ffffff" }}
+                />
+              </PieChart>
+            ) : (
+              <p style={{ color: "#ffffff", textAlign: "center" }}>
+                {error ? "Error loading data" : "Loading..."}
+              </p>
+            )}
           </ResponsiveContainer>
         </div>
       </div>

@@ -10,39 +10,57 @@ import {
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
 import ToastNotification from "./ToastNotification";
 
-const ExpensesTable = () => {
+const ExpensesTable = ({ expenses: propExpenses }) => {
   const dispatch = useDispatch();
-  const { expenses, loading } = useSelector((state) => state.expenses || {});
+  const { expenses: reduxExpenses, loading } = useSelector(
+    (state) => state.expenses || {}
+  );
   const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState([]);
-  const navigate = useNavigate(); // Initialize navigate
+  const navigate = useNavigate();
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  useEffect(() => {
-    dispatch(getExpensesAction());
-  }, [dispatch]);
+  // Use propExpenses if provided, otherwise fall back to reduxExpenses
+  const expenses = propExpenses || reduxExpenses;
 
-  {
-    console.log("Expenses from store:", expenses);
-  }
+  useEffect(() => {
+    if (!propExpenses) {
+      dispatch(getExpensesAction());
+    }
+  }, [dispatch, propExpenses]);
+
   const handleToastClose = () => {
     setToastOpen(false);
     setToastMessage("");
   };
 
-  // Map expenses to rows
+  // Map expenses to rows, ensuring unique IDs
   const rows = Array.isArray(expenses)
-    ? expenses.map((item, index) => ({
-        id: item.id,
-        date: item.date,
-        ...item.expense,
-        expenseId: item.id,
-      }))
+    ? expenses
+        .filter((item) => {
+          const isValid = item && typeof item === "object" && item.id != null;
+          if (!isValid) {
+            console.warn("Invalid expense item:", item);
+          }
+          return isValid;
+        })
+        .map((item, index) => {
+          const row = {
+            id: item.id ?? `temp-${index}-${Date.now()}`,
+            date: item.date || "",
+            ...item.expense,
+            expenseId: item.id ?? `temp-${index}-${Date.now()}`,
+          };
+          return row;
+        })
     : [];
+
+  // Log rows for debugging
+  console.log("Mapped rows:", rows);
 
   // Action menu for each row (Edit and Delete buttons)
   const ActionMenu = ({ rowId, expenseId }) => {
@@ -57,12 +75,9 @@ const ExpensesTable = () => {
       setAnchorEl(null);
     };
 
-    // Redirect to the edit page when Edit button is clicked
     const handleEdit = () => {
       navigate(`/expenses/edit/${expenseId}`);
-
       dispatch(getExpenseAction(expenseId));
-      // Redirect to edit page
       handleClose();
     };
 
@@ -75,7 +90,8 @@ const ExpensesTable = () => {
           .then(() => dispatch(getExpensesAction()))
           .catch((error) => {
             console.error("Error deleting expense:", error);
-            alert("Error deleting expense. Please try again.");
+            setToastMessage("Error deleting expense. Please try again.");
+            setToastOpen(true);
           })
           .finally(() => handleClose());
       } else {
@@ -86,7 +102,7 @@ const ExpensesTable = () => {
     return (
       <>
         <IconButton onClick={handleClick}>
-          <MoreVertIcon />
+          <MoreVertIcon sx={{ color: "#fff" }} />
         </IconButton>
         <Menu
           anchorEl={anchorEl}
@@ -175,6 +191,7 @@ const ExpensesTable = () => {
         <DataGrid
           rows={rows}
           columns={columns}
+          getRowId={(row) => row.id} // Explicitly define ID field
           pageSize={pageSize}
           onPageSizeChange={(newSize) => setPageSize(newSize)}
           rowsPerPageOptions={[10, 20, 50, 100]}

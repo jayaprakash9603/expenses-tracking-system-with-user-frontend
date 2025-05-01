@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { getExpensesSummaryAction } from "../../Redux/Expenses/expense.action";
-import { Skeleton } from "@mui/material"; // ✅ Import Skeleton
+import { Skeleton } from "@mui/material";
 
 const Overview = () => {
   const dispatch = useDispatch();
@@ -25,9 +25,9 @@ const Overview = () => {
 
   const skeletonStyle = {
     ...shimmerKeyframes,
-    bgcolor: "#2c2c2c",
+    bgcolor: "rgb(27, 27, 27)",
     backgroundImage:
-      "linear-gradient(90deg, #2c2c2c 0%, #3a3a3a 50%, #2c2c2c 100%)",
+      "linear-gradient(90deg, rgb(27, 27, 27) 0%, rgb(51, 51, 51) 50%, rgb(27, 27, 27) 100%)",
     backgroundSize: "1000px 100%",
     animation: "shimmer 2s infinite linear",
     borderRadius: "8px",
@@ -40,26 +40,31 @@ const Overview = () => {
         flexDirection: "column",
         alignItems: "center",
         width: "640px",
-        backgroundColor: "#1b1b1b",
+        backgroundColor: "rgb(27, 27, 27)",
         borderRadius: "8px",
-        boxShadow: "0 0 8px rgba(0,0,0,0.2)",
-        border: "1px solid #383838",
+        boxShadow: "rgba(0, 0, 0, 0.08) 0px 0px 0px",
+        border: "1px solid rgb(80, 80, 80)",
         padding: "20px",
-        color: "white",
+        color: "#ffffff",
         height: "300px",
       }}
     >
       {/* Header */}
       <div style={{ width: "100%", marginBottom: "16px" }}>
         <p
-          style={{ fontWeight: "bold", fontSize: "18px", marginBottom: "4px" }}
+          style={{
+            fontWeight: "bold",
+            fontSize: "18px",
+            marginBottom: "4px",
+            color: "#ffffff",
+          }}
         >
           Financial Overview
         </p>
         <hr
           style={{
             border: "none",
-            borderTop: "1px solid #505050",
+            borderTop: "1px solid rgb(80, 80, 80)",
             width: "100%",
           }}
         />
@@ -108,7 +113,7 @@ const Overview = () => {
 const OverviewCard = ({ label, value }) => (
   <div
     style={{
-      backgroundColor: "#2a2a2a",
+      backgroundColor: "#333",
       padding: "10px",
       borderRadius: "8px",
       textAlign: "center",
@@ -118,8 +123,25 @@ const OverviewCard = ({ label, value }) => (
       justifyContent: "center",
     }}
   >
-    <p style={{ fontSize: "12px", marginBottom: "4px" }}>{label}</p>
-    <p style={{ fontSize: "16px", fontWeight: "bold", margin: 0 }}>{value}</p>
+    <p
+      style={{
+        fontSize: "12px",
+        marginBottom: "4px",
+        color: "#ffffff",
+      }}
+    >
+      {label}
+    </p>
+    <p
+      style={{
+        fontSize: "16px",
+        fontWeight: "bold",
+        margin: 0,
+        color: "#ffffff",
+      }}
+    >
+      {value}
+    </p>
   </div>
 );
 

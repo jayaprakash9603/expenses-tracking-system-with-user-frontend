@@ -18,6 +18,7 @@ import CreditDueContent from "./pages/Landingpage/CreditDueContent";
 import History from "./pages/Landingpage/History";
 import Budget from "./pages/Landingpage/Budget";
 import EditExpense from "./pages/Landingpage/EditExpense";
+import NewExpense from "./pages/Landingpage/NewExpense";
 
 function App() {
   const { auth } = useSelector((store) => store);
@@ -56,9 +57,11 @@ function App() {
           <Route index element={<Navigate to="/home" />} />
           <Route path="home" element={<HomeContent />} />
 
+          <Route path="upload" element={<Upload />} />
           {/* Nested expenses route */}
           <Route path="expenses">
             <Route index element={<ExpensesContent />} />
+            <Route path="create" element={<NewExpense />} />
             <Route path="edit/:id" element={<EditExpense />} />
           </Route>
 
@@ -70,7 +73,6 @@ function App() {
 
         <Route path="/create" element={<CreateExpenses />} />
         <Route path="/reports" element={<ReportsGeneration />} />
-        <Route path="/upload" element={<Upload />} />
       </Routes>
     </div>
   );
