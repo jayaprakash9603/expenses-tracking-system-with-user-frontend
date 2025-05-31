@@ -13,6 +13,9 @@ import {
   EDIT_EXPENSE_SUCCESS,
   EDIT_MUTLTIPLE_EXPENSE_REQUEST,
   EDIT_MUTLTIPLE_EXPENSE_SUCCESS,
+  FETCH_CASHFLOW_EXPENSES_FAILURE,
+  FETCH_CASHFLOW_EXPENSES_REQUEST,
+  FETCH_CASHFLOW_EXPENSES_SUCCESS,
   FETCH_EXPENSES_FAILURE,
   FETCH_EXPENSES_REQUEST,
   FETCH_EXPENSES_SUCCESS,
@@ -43,6 +46,9 @@ import {
   GET_EXPENSES_SUGGESTIONS_FAILURE,
   GET_EXPENSES_SUGGESTIONS_REQUEST,
   GET_EXPENSES_SUGGESTIONS_SUCCESS,
+  GET_SELECTED_EXPENSE_BUDGET_FAILURE,
+  GET_SELECTED_EXPENSE_BUDGET_REQUEST,
+  GET_SELECTED_EXPENSE_BUDGET_SUCCESS,
   RESET_UPLOAD_STATE,
   SAVE_EXPENSES_FAILURE,
   SAVE_EXPENSES_REQUEST,
@@ -50,6 +56,9 @@ import {
   UPLOAD_FILE_FAILURE,
   UPLOAD_FILE_REQUEST,
   UPLOAD_FILE_SUCCESS,
+  GET_PARTICULAR_DATE_EXPENSES_REQUEST,
+  GET_PARTICULAR_DATE_EXPENSES_SUCCESS,
+  GET_PARTICULAR_DATE_EXPENSES_FAILURE,
 } from "./expense.actionType";
 
 const token = localStorage.getItem("jwt");
@@ -460,6 +469,73 @@ export const fetchExpenses =
     }
   };
 
-export const clearError = () => ({
-  type: CLEAR_ERROR,
-});
+export const getExpensesByBudget =
+  (id, startDate, endDate) => async (dispatch) => {
+    dispatch({ type: GET_SELECTED_EXPENSE_BUDGET_REQUEST });
+
+    if (!token) {
+      console.error("JWT not found in localStorage");
+      dispatch({
+        type: GET_SELECTED_EXPENSE_BUDGET_FAILURE,
+        payload: "JWT not found",
+      });
+      return;
+    }
+
+    try {
+      const { data } = await api.get(`/api/expenses/${id}/expenses`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json", // optional, but good to include
+        },
+        params: {
+          startDate: startDate,
+          endDate: endDate,
+        },
+      });
+
+      console.log("budget creation response:", data);
+      dispatch({ type: GET_SELECTED_EXPENSE_BUDGET_SUCCESS, payload: data });
+    } catch (error) {
+      console.error("Error creating budget:", error);
+      dispatch({ type: GET_SELECTED_EXPENSE_BUDGET_FAILURE, payload: error });
+    }
+  };
+export const fetchCashflowExpenses =
+  (rangeType, offset = 0, flowType = "") =>
+  async (dispatch) => {
+    dispatch({ type: FETCH_CASHFLOW_EXPENSES_REQUEST });
+    const jwt = localStorage.getItem("jwt");
+    try {
+      const { data } = await api.get("/api/expenses/range/offset", {
+        params: { rangeType, offset, flowType }, // Pass flowType to API
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      dispatch({ type: FETCH_CASHFLOW_EXPENSES_SUCCESS, payload: data });
+    } catch (error) {
+      dispatch({
+        type: FETCH_CASHFLOW_EXPENSES_FAILURE,
+        payload: error.message,
+      });
+    }
+  };
+export const getExpensesByParticularDate = (date) => async (dispatch) => {
+  dispatch({ type: GET_PARTICULAR_DATE_EXPENSES_REQUEST });
+  const token = localStorage.getItem("jwt");
+  try {
+    const { data } = await axios.get(
+      `${API_BASE_URL}/api/expenses/particular-date?date=${date}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    dispatch({ type: GET_PARTICULAR_DATE_EXPENSES_SUCCESS, payload: data });
+  } catch (error) {
+    dispatch({
+      type: GET_PARTICULAR_DATE_EXPENSES_FAILURE,
+      payload: error?.response?.data?.message || error.message,
+    });
+  }
+};

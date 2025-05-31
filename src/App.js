@@ -15,7 +15,6 @@ import HomeContent from "./pages/Landingpage/HomeContent";
 import ExpensesContent from "./pages/Landingpage/ExpensesContent";
 import TransactionsContent from "./pages/Landingpage/TransactionsContent";
 import CreditDueContent from "./pages/Landingpage/CreditDueContent";
-import History from "./pages/Landingpage/History";
 import Budget from "./pages/Landingpage/Budget";
 import EditExpense from "./pages/Landingpage/EditExpense";
 import NewExpense from "./pages/Landingpage/NewExpense";
@@ -23,6 +22,10 @@ import Profile from "./pages/Landingpage/Profile";
 import NewBudget from "./pages/Landingpage/NewBudget";
 import EditBudget from "./pages/Landingpage/EditBudget";
 import BudgetReport from "./pages/Landingpage/BudgetReport";
+import Reports from "./pages/Landingpage/Reports";
+import Cashflow from "./pages/Landingpage/CashFlow";
+import CalendarView from "./pages/Landingpage/CalendarView";
+import DayTransactionsView from "./pages/Landingpage/DayTransactionsView";
 
 function App() {
   const { auth } = useSelector((store) => store);
@@ -66,20 +69,23 @@ function App() {
           <Route path="upload" element={<Upload />} />
           {/* Nested expenses route */}
           <Route path="expenses">
-            <Route index element={<ExpensesContent />} />
+            <Route index element={<Cashflow />} />
             <Route path="create" element={<NewExpense />} />
             <Route path="edit/:id" element={<EditExpense />} />
           </Route>
 
           <Route path="transactions" element={<TransactionsContent />} />
           <Route path="credit-due" element={<CreditDueContent />} />
-          <Route path="settings" element={<History />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="cashflow" element={<ExpensesContent />} />
           <Route path="budget">
             <Route index element={<Budget />} />
             <Route path="create" element={<NewBudget />} />
             <Route path="edit/:id" element={<EditBudget />} />
             <Route path="report/:id" element={<BudgetReport />} />
           </Route>
+          <Route path="/calendar-view" element={<CalendarView />} />
+          <Route path="/day-view/:date" element={<DayTransactionsView />} />
         </Route>
 
         {/* Other Routes */}

@@ -7,6 +7,9 @@ import {
   DELETE_EXPENSE_FAILURE,
   DELETE_EXPENSE_REQUEST,
   DELETE_EXPENSE_SUCCESS,
+  FETCH_CASHFLOW_EXPENSES_FAILURE,
+  FETCH_CASHFLOW_EXPENSES_REQUEST,
+  FETCH_CASHFLOW_EXPENSES_SUCCESS,
   FETCH_EXPENSES_FAILURE,
   FETCH_EXPENSES_REQUEST,
   FETCH_EXPENSES_SUCCESS,
@@ -35,6 +38,9 @@ import {
   GET_EXPENSES_SUGGESTIONS_FAILURE,
   GET_EXPENSES_SUGGESTIONS_REQUEST,
   GET_EXPENSES_SUGGESTIONS_SUCCESS,
+  GET_SELECTED_EXPENSE_BUDGET_FAILURE,
+  GET_SELECTED_EXPENSE_BUDGET_REQUEST,
+  GET_SELECTED_EXPENSE_BUDGET_SUCCESS,
   RESET_UPLOAD_STATE,
   SAVE_EXPENSES_FAILURE,
   SAVE_EXPENSES_REQUEST,
@@ -42,6 +48,9 @@ import {
   UPLOAD_FILE_FAILURE,
   UPLOAD_FILE_REQUEST,
   UPLOAD_FILE_SUCCESS,
+  GET_PARTICULAR_DATE_EXPENSES_FAILURE,
+  GET_PARTICULAR_DATE_EXPENSES_REQUEST,
+  GET_PARTICULAR_DATE_EXPENSES_SUCCESS,
 } from "./expense.actionType";
 
 const initialState = {
@@ -57,6 +66,8 @@ const initialState = {
   topExpenses: [],
   history: [],
   budgetExpenses: [],
+  cashflowExpenses: [],
+  particularDateExpenses: [],
 };
 
 export const expenseReducer = (state = initialState, action) => {
@@ -73,10 +84,22 @@ export const expenseReducer = (state = initialState, action) => {
     case GET_EXPENSES_HISTORY_REQUEST:
     case FETCH_EXPENSES_REQUEST:
     case GET_BUDGET_EXPENSES_REQUEST:
+    case GET_SELECTED_EXPENSE_BUDGET_REQUEST:
+    case FETCH_CASHFLOW_EXPENSES_REQUEST:
+    case GET_PARTICULAR_DATE_EXPENSES_REQUEST:
       return { ...state, error: null, loading: true };
 
     // Success actions
+
+    case FETCH_CASHFLOW_EXPENSES_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        cashflowExpenses: action.payload,
+        error: null,
+      };
     case GET_ALL_EXPENSES_SUCCESS:
+    case GET_SELECTED_EXPENSE_BUDGET_SUCCESS:
       return {
         ...state,
         expenses: action.payload,
@@ -160,6 +183,13 @@ export const expenseReducer = (state = initialState, action) => {
         expenses: updatedExpenses,
         loading: false,
       };
+    case GET_PARTICULAR_DATE_EXPENSES_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        error: null,
+        particularDateExpenses: action.payload,
+      };
 
     // Failure actions
     case GET_ALL_EXPENSES_FAILURE:
@@ -171,6 +201,9 @@ export const expenseReducer = (state = initialState, action) => {
     case FETCH_EXPENSES_FAILURE:
     case GET_BUDGET_EXPENSES_FAILURE:
     case GET_BUDGET_FAILURE:
+    case GET_SELECTED_EXPENSE_BUDGET_FAILURE:
+    case FETCH_CASHFLOW_EXPENSES_FAILURE:
+    case GET_PARTICULAR_DATE_EXPENSES_FAILURE:
       return {
         ...state,
         error: action.payload,

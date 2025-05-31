@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Autocomplete,
@@ -12,13 +12,11 @@ import {
   TextField,
   Typography,
   Alert,
-  useTheme,
-  useMediaQuery,
 } from "@mui/material";
 import { API_BASE_URL } from "../../config/api";
 import { expensesTypesEmail } from "../Input Fields/InputFields";
 
-const ExpenseEmail = () => {
+const AuditEmail = () => {
   const [logTypes] = useState(expensesTypesEmail);
   const [searchTerm, setSearchTerm] = useState("");
   const [inputValue, setInputValue] = useState("");
@@ -42,21 +40,23 @@ const ExpenseEmail = () => {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const jwt = localStorage.getItem("jwt");
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const handleSendEmail = async () => {
     if (!email) {
       setError("Please enter an email.");
       return;
     }
+
     setError("");
     setLoading(true);
+
     const { url, params } = getEmailParams();
+
     if (!url) {
       setLoading(false);
       return;
     }
+
     try {
       const response = await axios.post(url, {
         params,
@@ -64,6 +64,7 @@ const ExpenseEmail = () => {
           Authorization: `Bearer ${jwt}`,
         },
       });
+
       if (response.status === 204) {
         alert("No Expenses were found.");
         handleClearAll();
@@ -88,7 +89,9 @@ const ExpenseEmail = () => {
   const getEmailParams = () => {
     let url = "";
     let params = { email };
+
     const baseUrl = `${API_BASE_URL}`;
+
     switch (searchTerm) {
       case "Today":
         url = `${baseUrl}/api/expenses/email/today`;
@@ -147,6 +150,7 @@ const ExpenseEmail = () => {
         setError("Please select a valid option.");
         return { url: "", params: {} };
     }
+
     return { url, params };
   };
 
@@ -173,11 +177,13 @@ const ExpenseEmail = () => {
 
   const highlightText = (option, inputValue) => {
     if (!inputValue) return <div>{option}</div>;
+
     const regex = new RegExp(
-      `(${inputValue.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")})`,
+      `(${inputValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
       "gi"
     );
     const parts = option.split(regex);
+
     return (
       <div>
         {parts.map((part, index) =>
@@ -211,12 +217,11 @@ const ExpenseEmail = () => {
   return (
     <Box
       sx={{
-        p: isMobile ? 2 : 3,
+        p: 3,
         borderRadius: "8px",
-        maxWidth: isMobile ? "100%" : 500,
+        maxWidth: 500,
         width: "100%",
         background: "#1b1b1b",
-        mx: isMobile ? 0 : "auto",
       }}
     >
       {error && (
@@ -227,15 +232,12 @@ const ExpenseEmail = () => {
       <Box
         sx={{
           display: "flex",
-          flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
           mb: 2,
         }}
       >
-        <Typography variant="h6" sx={{ mb: isMobile ? 1 : 0 }}>
-          Filters
-        </Typography>
+        <Typography variant="h6">Filters</Typography>
         <Button
           variant="text"
           onClick={handleClearAll}
@@ -265,7 +267,7 @@ const ExpenseEmail = () => {
           loadingText="Loading"
           noOptionsText="No Data Found"
           openOnFocus
-          sx={{ width: "100%" }}
+          sx={{ width: "100%", maxWidth: 600 }}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -460,4 +462,4 @@ const ExpenseEmail = () => {
   );
 };
 
-export default ExpenseEmail;
+export default AuditEmail;

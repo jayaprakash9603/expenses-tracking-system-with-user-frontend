@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Box, Menu, MenuItem, IconButton, Skeleton } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import React, { useEffect, useState, useRef } from "react";
+import { Box, Skeleton, IconButton, useMediaQuery } from "@mui/material";
+import {
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarQuickFilter,
+} from "@mui/x-data-grid";
 import { useDispatch, useSelector } from "react-redux";
 import {
   deleteExpenseAction,
@@ -10,7 +14,13 @@ import {
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { useNavigate } from "react-router-dom";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import { Menu, MenuItem } from "@mui/material";
+import { useNavigate, useLocation } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
+import theme from "./theme";
 import ToastNotification from "./ToastNotification";
 import Modal from "./Modal";
 
@@ -19,52 +29,63 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
   const { expenses: reduxExpenses, loading } = useSelector(
     (state) => state.expenses || {}
   );
-  const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState([]);
   const navigate = useNavigate();
+  const location = useLocation();
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
   const [expenseData, setExpenseData] = useState({});
+  const apiRef = useRef(null);
+  const isSmallScreen = useMediaQuery("(max-width:640px)");
 
-  // Use propExpenses if provided, otherwise fall back to reduxExpenses
   const expenses = propExpenses || reduxExpenses;
 
   useEffect(() => {
     if (!propExpenses) {
       dispatch(getExpensesAction());
     }
-  }, [dispatch, propExpenses]);
+    // Show toast if redirected from NewExpense
+    if (location.state && location.state.toastMessage) {
+      setToastMessage(location.state.toastMessage);
+      setToastOpen(true);
+      // Remove the toastMessage from history state so it doesn't show again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [dispatch, propExpenses, location.state]);
 
   const handleToastClose = () => {
     setToastOpen(false);
     setToastMessage("");
   };
 
-  // Map expenses to rows, ensuring unique IDs
   const rows = Array.isArray(expenses)
     ? expenses
-        .filter((item) => {
-          const isValid = item && typeof item === "object" && item.id != null;
-          if (!isValid) {
-            console.warn("Invalid expense item:", item);
-          }
-          return isValid;
-        })
-        .map((item, index) => {
-          const row = {
-            id: item.id ?? `temp-${index}-${Date.now()}`,
-            date: item.date || "",
-            ...item.expense,
-            expenseId: item.id ?? `temp-${index}-${Date.now()}`,
-          };
-          return row;
-        })
+        .filter((item) => item && typeof item === "object" && item.id != null)
+        .map((item, index) => ({
+          id: item.id ?? `temp-${index}-${Date.now()}`,
+          date: item.date || "",
+          ...item.expense,
+          expenseId: item.id ?? `temp-${index}-${Date.now()}`,
+        }))
     : [];
 
-  // Action menu for each row (Edit and Delete buttons)
-  const ActionMenu = ({ rowId, expenseId }) => {
+  const handleSelectionChange = (newSelection) => {
+    if (!apiRef.current) {
+      setSelectedIds(newSelection);
+      return;
+    }
+
+    const visibleRowIds = apiRef.current.getSortedRows().map((row) => row.id);
+    const isSelectAll =
+      visibleRowIds.every((id) => newSelection.includes(id)) &&
+      newSelection.length >= visibleRowIds.length;
+
+    setSelectedIds(isSelectAll ? visibleRowIds : newSelection);
+  };
+
+  const ActionMenu = ({ expenseId }) => {
     const [anchorEl, setAnchorEl] = useState(null);
 
     const handleClick = (event) => {
@@ -72,9 +93,7 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
       setAnchorEl(event.currentTarget);
     };
 
-    const handleClose = () => {
-      setAnchorEl(null);
-    };
+    const handleClose = () => setAnchorEl(null);
 
     const handleEdit = () => {
       navigate(`/expenses/edit/${expenseId}`);
@@ -85,16 +104,7 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
     const handleDelete = () => {
       const expense = rows.find((row) => row.expenseId === expenseId);
       if (expense) {
-        setExpenseData({
-          expenseName: expense.expenseName || "",
-          amount: expense.amount || "",
-          type: expense.type || "",
-          paymentMethod: expense.paymentMethod || "",
-          netAmount: expense.netAmount || "",
-          comments: expense.comments || "",
-          creditDue: expense.creditDue || "",
-          date: expense.date || "",
-        });
+        setExpenseData({ ...expense });
         setExpenseToDelete(expenseId);
         setIsDeleteModalOpen(true);
       }
@@ -103,38 +113,19 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
 
     return (
       <>
-        <IconButton onClick={handleClick}>
-          <MoreVertIcon sx={{ color: "#fff" }} />
+        <IconButton onClick={handleClick} size="small">
+          <MoreVertIcon fontSize="small" />
         </IconButton>
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
           onClose={handleClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-          transformOrigin={{ vertical: "top", horizontal: "left" }}
-          PaperProps={{
-            sx: { bgcolor: "#1b1b1b" },
-          }}
         >
-          <MenuItem
-            onClick={handleEdit}
-            sx={{
-              color: "green",
-              "&:hover": { backgroundColor: "#2a2a2a" },
-            }}
-          >
-            <EditIcon sx={{ color: "green", marginRight: 1 }} />
-            Edit
+          <MenuItem onClick={handleEdit} sx={{ color: "green" }}>
+            <EditIcon sx={{ color: "green", mr: 1 }} /> Edit
           </MenuItem>
-          <MenuItem
-            onClick={handleDelete}
-            sx={{
-              color: "red",
-              "&:hover": { backgroundColor: "#2a2a2a" },
-            }}
-          >
-            <DeleteIcon sx={{ color: "red", marginRight: 1 }} />
-            Delete
+          <MenuItem onClick={handleDelete} sx={{ color: "red" }}>
+            <DeleteIcon sx={{ color: "red", mr: 1 }} /> Delete
           </MenuItem>
         </Menu>
       </>
@@ -149,8 +140,7 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
           setToastMessage("Expense deleted successfully.");
           setToastOpen(true);
         })
-        .catch((error) => {
-          console.error("Error deleting expense:", error);
+        .catch(() => {
           setToastMessage("Error deleting expense. Please try again.");
           setToastOpen(true);
         })
@@ -168,7 +158,6 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
     setExpenseData({});
   };
 
-  // Define header names for the modal
   const headerNames = {
     expenseName: "Expense Name",
     amount: "Amount",
@@ -180,54 +169,135 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
     date: "Date",
   };
 
-  // Columns definition for DataGrid
   const columns = [
-    { field: "id", headerName: "Index", flex: 1 },
-    { field: "date", headerName: "Date", flex: 1 },
-    { field: "expenseName", headerName: "Name", flex: 1 },
-    { field: "amount", headerName: "Amount", type: "number", flex: 1 },
-    { field: "type", headerName: "Type", flex: 1 },
-    { field: "paymentMethod", headerName: "Payment", flex: 1 },
-    { field: "netAmount", headerName: "Net Amount", type: "number", flex: 1 },
-    { field: "comments", headerName: "Comments", flex: 1 },
-    { field: "creditDue", headerName: "Credit Due", type: "number", flex: 1 },
+    !isSmallScreen && {
+      field: "date",
+      headerName: "Date",
+      flex: 1,
+      minWidth: 80,
+    },
+    {
+      field: "expenseName",
+      headerName: "Name",
+      flex: 1,
+      minWidth: 80,
+    },
+    {
+      field: "amount",
+      headerName: "Amount",
+      type: "number",
+      flex: 1,
+      minWidth: 80,
+      renderCell: (params) => {
+        const type = params.row.type;
+        const amount = params.value;
+        const isLoss = type === "loss";
+
+        if (!isSmallScreen) {
+          return <span>{amount}</span>; // No color styling on large screens
+        }
+
+        const Icon = isLoss ? ArrowDownwardIcon : ArrowUpwardIcon;
+        const iconColor = isLoss ? "red" : "green";
+        const amountColor = isLoss ? "red" : "green";
+
+        return (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Icon sx={{ fontSize: "1rem", color: iconColor }} />
+            <span style={{ color: amountColor }}>{amount}</span>
+          </Box>
+        );
+      },
+    },
+    !isSmallScreen && {
+      field: "type",
+      headerName: "Type",
+      flex: 1,
+      minWidth: 80,
+    },
+    !isSmallScreen && {
+      field: "paymentMethod",
+      headerName: "Payment",
+      flex: 1,
+      minWidth: 80,
+    },
+    !isSmallScreen && {
+      field: "netAmount",
+      headerName: "Net Amount",
+      type: "number",
+      flex: 1,
+      minWidth: 80,
+    },
+    !isSmallScreen && {
+      field: "comments",
+      headerName: "Comments",
+      flex: 1,
+      minWidth: 120,
+    },
+    !isSmallScreen && {
+      field: "creditDue",
+      headerName: "Credit Due",
+      type: "number",
+      flex: 1,
+      minWidth: 80,
+    },
     {
       field: "actions",
       headerName: "",
       width: 50,
       sortable: false,
       filterable: false,
-      renderCell: (params) => (
-        <ActionMenu rowId={params.row.id} expenseId={params.row.expenseId} />
-      ),
+      renderCell: (params) => <ActionMenu expenseId={params.row.expenseId} />,
     },
-  ];
+  ].filter(Boolean);
+
+  const CustomToolbar = () => (
+    <GridToolbarContainer sx={{ display: "flex", gap: 1, p: 1 }}>
+      <GridToolbarQuickFilter
+        sx={{
+          fontSize: isSmallScreen ? "0.75rem" : "0.875rem",
+          "& .MuiInputBase-root": {
+            backgroundColor: "#1b1b1b",
+            color: "#ffffff",
+            borderRadius: "8px",
+          },
+          "& .MuiInputBase-input::placeholder": {
+            color: "#666666",
+          },
+        }}
+      />
+      <IconButton sx={{ color: "#00dac6" }}>
+        <FilterListIcon fontSize={isSmallScreen ? "small" : "medium"} />
+      </IconButton>
+    </GridToolbarContainer>
+  );
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
       <ToastNotification
         open={toastOpen}
         message={toastMessage}
         onClose={handleToastClose}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       />
-
       <Box
-        sx={{ height: 700, width: "100%", bgcolor: "#121212", padding: "10px" }}
+        sx={{
+          height: 700,
+          width: "100%",
+          fontSize: isSmallScreen ? "0.75rem" : "0.875rem",
+        }}
       >
         {loading ? (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <Skeleton
-              variant="rectangular"
-              height={40}
-              sx={{ bgcolor: "#2c2c2c", borderRadius: 1 }}
-            />
-            {Array.from({ length: 10 }).map((_, i) => (
+          <Box sx={{ height: 700, overflow: "hidden" }}>
+            {[...Array(15)].map((_, index) => (
               <Skeleton
-                key={i}
-                variant="rectangular"
-                height={45}
-                sx={{ bgcolor: "#1f1f1f", borderRadius: 1 }}
+                key={index}
+                sx={{
+                  height: "43.5px",
+                  width: "100%",
+                  mb: index < 14 ? "3px" : 0,
+                  borderRadius: "4px",
+                }}
               />
             ))}
           </Box>
@@ -236,49 +306,22 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
             rows={rows}
             columns={columns}
             getRowId={(row) => row.id}
-            pageSize={pageSize}
-            onPageSizeChange={(newSize) => setPageSize(newSize)}
-            rowsPerPageOptions={[10, 20, 50, 100]}
+            initialState={{
+              pagination: { paginationModel: { page: 0, pageSize: 10 } },
+            }}
+            pageSizeOptions={[10, 15, 20]}
             checkboxSelection
-            disableSelectionOnClick
-            onSelectionModelChange={(newSelection) =>
-              setSelectedIds(newSelection)
-            }
-            sx={{
-              "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "#0b0b0b",
-                color: "#00dac6",
-                fontWeight: "bold",
-              },
-              "& .MuiDataGrid-cell": {
-                backgroundColor: "#1b1b1b",
-                color: "#fff",
-              },
-              "& .MuiDataGrid-row:hover": {
-                backgroundColor: "#28282a",
-              },
-              "& .MuiCheckbox-root svg": {
-                fill: "#666666",
-              },
-              "& .Mui-checked .MuiSvgIcon-root": {
-                color: "#00dac6",
-              },
-              "& .MuiDataGrid-footerContainer": {
-                backgroundColor: "#1b1b1b",
-                color: "#00dac6",
-              },
-              "& .MuiDataGrid-footerContainer .MuiTypography-root": {
-                color: "#00dac6",
-              },
-              "& .MuiDataGrid-footerContainer .MuiPaginationItem-root": {
-                color: "#00dac6",
-              },
-              "& .MuiPaginationItem-root, .MuiDataGrid-sortIcon, .MuiIconButton-root":
-                {
-                  color: "#00dac6",
-                },
-              "& .MuiPaginationItem-root:hover, .MuiIconButton-root:hover": {
-                backgroundColor: "rgba(0, 218, 198, 0.1)",
+            disableRowSelectionOnClick
+            onRowSelectionModelChange={handleSelectionChange}
+            apiRef={apiRef}
+            rowHeight={isSmallScreen ? 53 : 53}
+            headerHeight={isSmallScreen ? 45 : 40}
+            autoHeight={false}
+            slots={{ toolbar: CustomToolbar }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 500 },
               },
             }}
           />
@@ -286,7 +329,7 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
         <Modal
           isOpen={isDeleteModalOpen}
           onClose={handleCancelDelete}
-          title="Deletion Confimation"
+          title="Deletion Confirmation"
           data={expenseData}
           headerNames={headerNames}
           onApprove={handleConfirmDelete}
@@ -295,7 +338,7 @@ const ExpensesTable = ({ expenses: propExpenses }) => {
           declineText="No, Cancel"
         />
       </Box>
-    </>
+    </ThemeProvider>
   );
 };
 

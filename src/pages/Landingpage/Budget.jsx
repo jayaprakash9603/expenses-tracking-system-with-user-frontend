@@ -1,11 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-} from "@tanstack/react-table";
 import {
   getBudgetData,
   deleteBudgetData,
@@ -13,78 +7,63 @@ import {
   getBudgetReportById,
 } from "../../Redux/Budget/budget.action";
 import { useNavigate } from "react-router-dom";
-import { CiFilter } from "react-icons/ci";
-import { MdFilterList } from "react-icons/md";
-import { BsThreeDots } from "react-icons/bs";
-import { FaEdit, FaTrash } from "react-icons/fa";
-import Modal from "./Modal"; // Adjust path as needed
-import ToastNotification from "./ToastNotification"; // Adjust path as needed
-import { FiFileText } from "react-icons/fi";
 import {
   getExpensesAction,
   getExpensesByBudgetId,
 } from "../../Redux/Expenses/expense.action";
+import {
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarQuickFilter,
+} from "@mui/x-data-grid";
+import {
+  Button,
+  IconButton,
+  Menu,
+  MenuItem,
+  Typography,
+  Skeleton,
+  Box,
+  Divider,
+  useMediaQuery,
+} from "@mui/material";
+import {
+  FilterList as FilterListIcon,
+  MoreVert as MoreVertIcon,
+  Description as ReportIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Add as AddIcon,
+} from "@mui/icons-material";
+import Modal from "./Modal";
+import ToastNotification from "./ToastNotification";
 
 const Budget = () => {
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(13);
-  const [sorting, setSorting] = useState([]);
-  const [selectedRows, setSelectedRows] = useState({});
-  const [selectAll, setSelectAll] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [sortModel, setSortModel] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuBudgetId, setMenuBudgetId] = useState(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState(null);
   const [toast, setToast] = useState({ open: false, message: "" });
+  const isSmallScreen = useMediaQuery("(max-width: 768px)");
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { budgets, loading, error } = useSelector((state) => state.budgets);
-  const menuRef = useRef(null);
 
-  // Fetch budget data on component mount
   useEffect(() => {
     dispatch(getBudgetData());
     dispatch(getExpensesAction());
   }, [dispatch]);
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuAnchor(null);
-        setMenuBudgetId(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleNewBudgetClick = () => {
     navigate("/budget/create");
   };
 
-  const handleSelectAll = () => {
-    const newSelectAll = !selectAll;
-    setSelectAll(newSelectAll);
-    const newSelectedRows = {};
-    if (newSelectAll) {
-      table.getRowModel().rows.forEach((row) => {
-        newSelectedRows[row.id] = true;
-      });
-    }
-    setSelectedRows(newSelectedRows);
-  };
-
   const handleMenuClick = (event, budgetId) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const menuWidth = 120; // Matches minWidth of the menu
-    const leftPosition = Math.max(0, rect.left + window.scrollX - menuWidth);
-    setMenuPosition({
-      top: rect.bottom + window.scrollY,
-      left: leftPosition,
-    });
     setMenuAnchor(event.currentTarget);
     setMenuBudgetId(budgetId);
   };
@@ -96,10 +75,10 @@ const Budget = () => {
 
   const handleEdit = () => {
     dispatch(getBudgetById(menuBudgetId));
-
     navigate(`/budget/edit/${menuBudgetId}`);
     handleMenuClose();
   };
+
   const handleReport = async () => {
     await dispatch(getExpensesByBudgetId(menuBudgetId));
     await dispatch(getBudgetReportById(menuBudgetId));
@@ -146,136 +125,136 @@ const Budget = () => {
     setToast({ open: false, message: "" });
   };
 
-  const columns = useMemo(
-    () => [
-      {
-        header: () => (
-          <input
-            type="checkbox"
-            checked={selectAll}
-            onChange={handleSelectAll}
-            className="form-checkbox h-5 w-5 bg-[#666666] text-[#04d2c1] border-gray-600 rounded"
-            style={{ borderRadius: "4px" }}
-          />
-        ),
-        id: "checkbox",
-        size: 50,
-        cell: ({ row }) => (
-          <input
-            type="checkbox"
-            checked={selectedRows[row.id] || false}
-            onChange={() => {
-              setSelectedRows((prev) => {
-                const newSelected = { ...prev, [row.id]: !prev[row.id] };
-                const allSelected =
-                  table.getRowModel().rows.every((r) => newSelected[r.id]) &&
-                  table.getRowModel().rows.length > 0;
-                setSelectAll(allSelected);
-                return newSelected;
-              });
-            }}
-            className="form-checkbox h-5 w-5 bg-[#666666] text-[#04d2c1] border-gray-600 rounded"
-            style={{ borderRadius: "4px" }}
-          />
-        ),
-        enableSorting: false,
-      },
-      {
-        header: "Name",
-        accessorKey: "name",
-        size: 150,
-        cell: ({ getValue }) => getValue() || "N/A",
-        enableSorting: true,
-      },
-      {
-        header: "Description",
-        accessorKey: "description",
-        size: 200,
-        cell: ({ getValue }) => getValue() || "N/A",
-        enableSorting: true,
-      },
-      {
-        header: "Amount",
-        accessorKey: "amount",
-        size: 100,
-        cell: ({ getValue }) => `$${getValue().toFixed(2)}`,
-        enableSorting: true,
-      },
-      {
-        header: "Start Date",
-        accessorKey: "startDate",
-        size: 120,
-        cell: ({ getValue }) => getValue() || "N/A",
-        enableSorting: true,
-      },
-      {
-        header: "End Date",
-        accessorKey: "endDate",
-        size: 120,
-        cell: ({ getValue }) => getValue() || "N/A",
-        enableSorting: true,
-      },
-      {
-        header: "Remaining",
-        accessorKey: "remainingAmount",
-        size: 100,
-        cell: ({ getValue }) => `$${getValue().toFixed(2)}`,
-        enableSorting: true,
-      },
-      {
-        header: "",
-        id: "actions",
-        size: 50,
-        cell: ({ row }) => (
-          <div className="flex justify-center">
-            <button
-              onClick={(e) => handleMenuClick(e, row.original.id)}
-              className="text-white hover:text-[#00dac6] focus:outline-none "
+  // Define columns based on screen size.
+  // For small screens: only name, start date, end date and remaining (short headers)
+  // For larger screens: include description, amount and action button.
+  const columns = useMemo(() => {
+    if (isSmallScreen) {
+      return [
+        {
+          field: "name",
+          headerName: "Name",
+          flex: 2,
+          minWidth: 120,
+          maxWidth: 200,
+          sortable: true,
+          renderCell: (params) => params.value || "N/A",
+        },
+        {
+          field: "remainingAmount",
+          headerName: "Remaining",
+          flex: 1,
+          minWidth: 100,
+          maxWidth: 180,
+          sortable: true,
+          renderCell: (params) =>
+            `$${params.value ? params.value.toFixed(2) : "0.00"}`,
+        },
+        {
+          field: "actions",
+          headerName: "",
+          width: 40,
+          sortable: false,
+          renderCell: (params) => (
+            <IconButton
+              onClick={(e) => handleMenuClick(e, params.row.id)}
+              sx={{ color: "#ffffff", "&:hover": { color: "#00dac6" } }}
             >
-              ⋮
-            </button>
-          </div>
-        ),
-        enableSorting: false,
-      },
-    ],
-    [selectedRows, selectAll]
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+          ),
+        },
+      ];
+    } else {
+      return [
+        {
+          field: "name",
+          headerName: "Name",
+          flex: 2,
+          minWidth: 120,
+          maxWidth: 300,
+          sortable: true,
+          renderCell: (params) => params.value || "N/A",
+        },
+        {
+          field: "description",
+          headerName: "Description",
+          flex: 3,
+          minWidth: 180,
+          maxWidth: 450,
+          sortable: true,
+          renderCell: (params) => params.value || "N/A",
+        },
+        {
+          field: "amount",
+          headerName: "Amount",
+          flex: 0.8,
+          minWidth: 90,
+          maxWidth: 150,
+          sortable: true,
+          renderCell: (params) =>
+            `$${params.value ? params.value.toFixed(2) : "0.00"}`,
+        },
+        {
+          field: "startDate",
+          headerName: "Start Date",
+          flex: 0.8,
+          minWidth: 90,
+          maxWidth: 150,
+          sortable: true,
+          renderCell: (params) => params.value || "N/A",
+        },
+        {
+          field: "endDate",
+          headerName: "End Date",
+          flex: 0.8,
+          minWidth: 90,
+          maxWidth: 150,
+          sortable: true,
+          renderCell: (params) => params.value || "N/A",
+        },
+        {
+          field: "remainingAmount",
+          headerName: "Remaining",
+          flex: 1,
+          minWidth: 100,
+          maxWidth: 180,
+          sortable: true,
+          renderCell: (params) =>
+            `$${params.value ? params.value.toFixed(2) : "0.00"}`,
+        },
+        {
+          field: "actions",
+          headerName: "",
+          width: 40,
+          sortable: false,
+          renderCell: (params) => (
+            <IconButton
+              onClick={(e) => handleMenuClick(e, params.row.id)}
+              sx={{ color: "#ffffff", "&:hover": { color: "#00dac6" } }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+          ),
+        },
+      ];
+    }
+  }, [isSmallScreen]);
+
+  const rows = useMemo(
+    () =>
+      budgets?.map((budget) => ({
+        id: budget.id,
+        name: budget.name,
+        description: budget.description,
+        amount: budget.amount,
+        startDate: budget.startDate,
+        endDate: budget.endDate,
+        remainingAmount: budget.remainingAmount,
+      })) || [],
+    [budgets]
   );
 
-  const table = useReactTable({
-    data: budgets || [],
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    onPaginationChange: (updater) => {
-      const newState =
-        typeof updater === "function"
-          ? updater({ pageIndex, pageSize })
-          : updater;
-      setPageIndex(newState.pageIndex);
-      setPageSize(newState.pageSize);
-    },
-    state: {
-      sorting,
-      pagination: { pageIndex, pageSize },
-    },
-    pageCount: Math.ceil((budgets?.length || 0) / pageSize),
-  });
-
-  const handlePageSizeChange = (e) => {
-    const newSize = Number(e.target.value);
-    setPageSize(newSize);
-    setPageIndex(0);
-    setSelectedRows({});
-    setSelectAll(false);
-  };
-
-  // Calculate fixed table height for 13 rows: header (40px) + 13 rows (43.5px each)
-  const tableHeight = 40 + 13 * 43.5; // ~605.5px
-
-  // Modal data and header names
   const modalData = budgetToDelete
     ? {
         name: budgetToDelete.name || "N/A",
@@ -291,295 +270,248 @@ const Budget = () => {
       }
     : {};
 
-  const headerNames = {
-    name: "Name",
-    amount: "Amount",
-    description: "Description",
-    startDate: "Start Date",
-    endDate: "End Date",
-    remainingAmount: "Remaining",
-  };
+  const tableHeight = 30 + 10 * 45; // headerHeight: 30, rowHeight: 45
+
+  const CustomToolbar = () => (
+    <GridToolbarContainer sx={{ display: "flex", gap: 1, p: 1 }}>
+      <GridToolbarQuickFilter
+        sx={{
+          "& .MuiInputBase-root": {
+            backgroundColor: "#1b1b1b",
+            color: "#ffffff",
+            borderRadius: "8px",
+            fontSize: "0.75rem",
+          },
+          "& .MuiInputBase-input::placeholder": { color: "#666666" },
+        }}
+      />
+      <IconButton sx={{ color: "#00dac6" }}>
+        <FilterListIcon fontSize="small" />
+      </IconButton>
+    </GridToolbarContainer>
+  );
 
   return (
-    <div className="bg-[#1b1b1b]">
-      <div className="w-[calc(100vw-370px)] h-[50px] bg-[#1b1b1b]"></div>
-      <div
-        className="flex flex-col justify-between items-center flex-shrink-1 flex-grow-1 align-self-stretch"
-        style={{
-          width: "calc(100vw - 370px)",
+    <>
+      <div className="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>
+      <Box
+        sx={{
+          bgcolor: "#0b0b0b",
+          width: isSmallScreen ? "100vw" : "calc(100vw - 370px)",
           height: "calc(100vh - 100px)",
-          backgroundColor: "rgb(11, 11, 11)",
           borderRadius: "8px",
-          boxShadow: "rgba(0, 0, 0, 0.08) 0px 0px 0px",
-          border: "1px solid rgb(0, 0, 0)",
-          opacity: 1,
-          padding: "16px",
-          marginRight: "20px",
+          border: "1px solid #000",
+          p: 2,
+          mr: isSmallScreen ? 0 : "20px",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <div className="w-full flex flex-col h-full ">
-          <div className="w-full flex-col">
-            <div className="w-full flex justify-between items-center">
-              <div>
-                <p className="text-white font-bold text-5xl">Budgets</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleNewBudgetClick}
-                  className="bg-[#00dac6] text-black font-bold px-4 py-2 rounded cursor-pointer"
-                >
-                  + New Budget
-                </button>
-                <div className="w-10 h-10 bg-[#1b1b1b] flex items-center justify-center rounded cursor-pointer">
-                  <CiFilter className="text-[#00dac6]" />
-                </div>
-                <div className="w-10 h-10 bg-[#1b1b1b] flex items-center justify-center rounded cursor-pointer">
-                  <MdFilterList className="text-[#00dac6]" />
-                </div>
-                <div className="w-10 h-10 bg-[#1b1b1b] flex items-center justify-center rounded cursor-pointer">
-                  <BsThreeDots className="text-[#00dac6]" />
-                </div>
-              </div>
-            </div>
-            <hr className="border-t border-gray-600 w-full mt-1 mb-4" />
-          </div>
-
-          <div className="flex-1 flex flex-col">
-            {loading ? (
-              <div
-                className="text-center text-gray-400 py-8"
-                style={{ height: `${tableHeight}px` }}
-              >
-                Loading...
-              </div>
-            ) : error ? (
-              <div
-                className="text-center text-red-500 py-8"
-                style={{ height: `${tableHeight}px` }}
-              >
-                Error: {error.message || "Failed to load budgets."}
-              </div>
-            ) : (
-              <>
-                <div
-                  className="overflow-x-auto overflow-y-auto border border-gray-600 rounded relative"
-                  style={{ height: `${tableHeight}px` }}
-                >
-                  <table className="w-full text-white border-collapse">
-                    <thead>
-                      {table.getHeaderGroups().map((headerGroup) => (
-                        <tr key={headerGroup.id}>
-                          {headerGroup.headers.map((header) => (
-                            <th
-                              key={header.id}
-                              className="px-4 py-2 text-left bg-[#29282b] border-b border-gray-600 sticky top-0 z-10 cursor-pointer"
-                              style={{
-                                width: header.column.columnDef.size,
-                                minWidth: header.column.columnDef.size,
-                                maxWidth: header.column.columnDef.size,
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                height: "40px",
-                              }}
-                              onClick={header.column.getToggleSortingHandler()}
-                            >
-                              <div className="flex items-center">
-                                {typeof header.column.columnDef.header ===
-                                "function"
-                                  ? header.column.columnDef.header()
-                                  : header.column.columnDef.header}
-                                {{
-                                  asc: " ↑",
-                                  desc: " ↓",
-                                }[header.column.getIsSorted()] ?? null}
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      ))}
-                    </thead>
-                    <tbody>
-                      {table.getRowModel().rows.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={columns.length}
-                            className="px-4 py-2 text-center text-gray-400 border-b border-gray-600"
-                            style={{ height: `${tableHeight - 40}px` }}
-                          >
-                            No rows found
-                          </td>
-                        </tr>
-                      ) : (
-                        table.getRowModel().rows.map((row) => (
-                          <tr key={row.id} className="border-b border-gray-600">
-                            {row.getVisibleCells().map((cell) => (
-                              <td
-                                key={cell.id}
-                                className="px-4 py-2"
-                                style={{
-                                  width: cell.column.columnDef.size,
-                                  minWidth: cell.column.columnDef.size,
-                                  maxWidth: cell.column.columnDef.size,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  height: "42px",
-                                }}
-                              >
-                                {cell.column.columnDef.cell
-                                  ? cell.column.columnDef.cell(cell)
-                                  : cell.getValue()}
-                              </td>
-                            ))}
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <div
-                  className="flex justify-between items-center bg-[#0b0b0b] py-2 sticky bottom-0 z-20  border-gray-600 mt-10 px-4"
-                  style={{ width: "100%" }}
-                >
-                  {/* Left spacer to center middle section */}
-                  <div className="w-1/3" />
-
-                  {/* Center: Pagination controls */}
-                  <div className="flex items-center gap-2 justify-center w-1/3">
-                    <button
-                      onClick={() => setPageIndex(pageIndex - 1)}
-                      disabled={!table.getCanPreviousPage()}
-                      className={`px-3 py-1 rounded text-sm ${
-                        table.getCanPreviousPage()
-                          ? "bg-[#00DAC6] text-black hover:bg-[#00b8a0]"
-                          : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                      }`}
-                    >
-                      Previous
-                    </button>
-                    <span className="text-white text-sm">
-                      Page{" "}
-                      <strong>
-                        {pageIndex + 1} of {table.getPageCount()}
-                      </strong>
-                    </span>
-                    <button
-                      onClick={() => setPageIndex(pageIndex + 1)}
-                      disabled={!table.getCanNextPage()}
-                      className={`px-3 py-1 rounded text-sm ${
-                        table.getCanNextPage()
-                          ? "bg-[#00DAC6] text-black hover:bg-[#00b8a0]"
-                          : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                      }`}
-                    >
-                      Next
-                    </button>
-                  </div>
-
-                  {/* Right: Page size dropdown */}
-                  <div className="w-1/3 flex justify-end">
-                    <select
-                      value={pageSize}
-                      onChange={handlePageSizeChange}
-                      className="px-3 py-1 bg-[#29282b] text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-[#00dac6] text-sm"
-                    >
-                      {[5, 10, 13, 15, 20].map((size) => (
-                        <option key={size} value={size}>
-                          Show {size}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      <ToastNotification
-        open={toast.open}
-        message={toast.message}
-        onClose={handleToastClose}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      />
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={handleCancelDelete}
-        title="Deletion Confirmation"
-        data={modalData}
-        headerNames={headerNames}
-        onApprove={handleConfirmDelete}
-        onDecline={handleCancelDelete}
-        approveText="Yes, Delete"
-        declineText="No, Cancel"
-        confirmationText={`Are you sure you want to delete the budget "${budgetToDelete?.name}"?`}
-      />
-      {menuAnchor && menuBudgetId && (
-        <div
-          ref={menuRef}
-          className="fixed bg-[#1b1b1b] border border-gray-600 rounded shadow-lg z-50"
-          style={{
-            top: `${menuPosition.top}px`,
-            left: `${menuPosition.left}px`,
-            minWidth: "120px",
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 1,
           }}
         >
-          <div
-            className="flex items-center px-4 py-2 text-blue-500 hover:bg-[#2a2a2a] cursor-pointer"
+          <Typography
+            variant="h3"
+            sx={{
+              color: "#ffffff",
+              fontWeight: "bold",
+              fontSize: "1.25rem",
+            }}
+          >
+            Budgets
+          </Typography>
+          {isSmallScreen ? (
+            <IconButton
+              onClick={handleNewBudgetClick}
+              sx={{
+                color: "#ffffff",
+                bgcolor: "#00dac6",
+                borderRadius: "50%",
+                p: 1,
+              }}
+            >
+              <AddIcon fontSize="small" />
+            </IconButton>
+          ) : (
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+              <Button
+                variant="contained"
+                onClick={handleNewBudgetClick}
+                sx={{ textTransform: "none" }}
+              >
+                + New Budget
+              </Button>
+              <IconButton sx={{ color: "#00dac6", bgcolor: "#1b1b1b" }}>
+                <FilterListIcon fontSize="small" />
+              </IconButton>
+              <IconButton sx={{ color: "#00dac6", bgcolor: "#1b1b1b" }}>
+                <FilterListIcon fontSize="small" />
+              </IconButton>
+              <IconButton sx={{ color: "#00dac6", bgcolor: "#1b1b1b" }}>
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+        </Box>
+        <Divider sx={{ borderColor: "#28282a", my: 1 }} />
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          {loading ? (
+            <Box sx={{ height: `${tableHeight}px`, overflow: "hidden" }}>
+              {[...Array(10)].map((_, index) => (
+                <Skeleton
+                  key={index}
+                  sx={{
+                    height: 45,
+                    width: "100%",
+                    mb: index < 9 ? "3px" : 0,
+                    borderRadius: "4px",
+                  }}
+                />
+              ))}
+            </Box>
+          ) : error ? (
+            <Box
+              sx={{
+                height: `${tableHeight}px`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Typography color="error">
+                Error: {error.message || "Failed to load budgets."}
+              </Typography>
+            </Box>
+          ) : (
+            <DataGrid
+              rows={rows}
+              columns={columns}
+              paginationMode="client"
+              sortingMode="client"
+              checkboxSelection
+              disableRowSelectionOnClick
+              initialState={{
+                pagination: { paginationModel: { page: 0, pageSize: 10 } },
+              }}
+              pageSizeOptions={[10, 15, 20]}
+              paginationModel={{ page: pageIndex, pageSize }}
+              onPaginationModelChange={(model) => {
+                setPageIndex(model.page);
+                setPageSize(model.pageSize);
+                setSelectedRows([]);
+              }}
+              sortModel={sortModel}
+              onSortModelChange={setSortModel}
+              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={setSelectedRows}
+              rowHeight={isSmallScreen ? 55 : 54}
+              headerHeight={isSmallScreen ? 55 : 54}
+              slots={{ toolbar: CustomToolbar }}
+              slotProps={{
+                toolbar: {
+                  showQuickFilter: true,
+                  quickFilterProps: { debounceMs: 500 },
+                },
+              }}
+              sx={{
+                "& .MuiDataGrid-cell": {
+                  fontSize: isSmallScreen ? "0.85rem" : "0.875rem",
+                  py: 0.5,
+                },
+                "& .MuiDataGrid-columnHeaders": {
+                  fontSize: "0.75rem",
+                  py: 0.5,
+                },
+              }}
+            />
+          )}
+        </Box>
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={handleMenuClose}
+          PaperProps={{
+            sx: {
+              bgcolor: "#1b1b1b",
+              color: "#ffffff",
+              border: "1px solid #28282a",
+              borderRadius: "8px",
+              minWidth: "120px",
+            },
+          }}
+          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          <MenuItem
             onClick={handleReport}
+            sx={{
+              color: "#2196f3",
+              "&:hover": { bgcolor: "#2a2a2a" },
+              display: "flex",
+              gap: 1,
+            }}
           >
-            <FiFileText className="mr-2" />
+            <ReportIcon fontSize="small" />
             Report
-          </div>
-          <div
-            className="flex items-center px-4 py-2 text-green-500 hover:bg-[#2a2a2a] cursor-pointer"
+          </MenuItem>
+          <MenuItem
             onClick={handleEdit}
+            sx={{
+              color: "#4caf50",
+              "&:hover": { bgcolor: "#2a2a2a" },
+              display: "flex",
+              gap: 1,
+            }}
           >
-            <FaEdit className="mr-2" />
+            <EditIcon fontSize="small" />
             Edit
-          </div>
-          <div
-            className="flex items-center px-4 py-2 text-red-500 hover:bg-[#2a2a2a] cursor-pointer"
+          </MenuItem>
+          <MenuItem
             onClick={handleDelete}
+            sx={{
+              color: "#f44336",
+              "&:hover": { bgcolor: "#2a2a2a" },
+              display: "flex",
+              gap: 1,
+            }}
           >
-            <FaTrash className="mr-2" />
+            <DeleteIcon fontSize="small" />
             Delete
-          </div>
-        </div>
-      )}
-      <div className="w-[calc(100vw-370px)] h-[50px] bg-[#1b1b1b]"></div>
-      <style>
-        {`
-          .overflow-y-auto::-webkit-scrollbar {
-            width: 4px;
-          }
-          .overflow-y-auto::-webkit-scrollbar-track {
-            background: #1b1b1b;
-          }
-          .overflow-y-auto::-webkit-scrollbar-thumb {
-            background: #00dac6;
-            border-radius: 4px;
-          }
-          .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-            background: #00b8a0;
-          }
-          .overflow-x-auto::-webkit-scrollbar {
-            height: 4px;
-          }
-          .overflow-x-auto::-webkit-scrollbar-track {
-            background: #1b1b1b;
-          }
-          .overflow-x-auto::-webkit-scrollbar-thumb {
-            background: #00dac6;
-            border-radius: 4px;
-          }
-          .overflow-x-auto::-webkit-scrollbar-thumb:hover {
-            background: #00b8a0;
-          }
-        `}
-      </style>
-    </div>
+          </MenuItem>
+        </Menu>
+        <ToastNotification
+          open={toast.open}
+          message={toast.message}
+          onClose={handleToastClose}
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        />
+        <Modal
+          isOpen={isDeleteModalOpen}
+          onClose={handleCancelDelete}
+          title="Deletion Confirmation"
+          data={modalData}
+          headerNames={{
+            name: "Name",
+            amount: "Amount",
+            description: "Description",
+            startDate: "Start Date",
+            endDate: "End Date",
+            remainingAmount: "Remaining",
+          }}
+          onApprove={handleConfirmDelete}
+          onDecline={handleCancelDelete}
+          approveText="Yes, Delete"
+          declineText="No, Cancel"
+          confirmationText={`Are you sure you want to delete the budget "${budgetToDelete?.name}"?`}
+        />
+      </Box>
+    </>
   );
 };
 

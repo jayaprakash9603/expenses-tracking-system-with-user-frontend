@@ -7,6 +7,7 @@ import {
 import {
   editMultipleExpenseAction,
   fetchExpenses,
+  getExpensesByBudget,
 } from "../../Redux/Expenses/expense.action";
 import {
   getBudgetById,
@@ -55,7 +56,7 @@ const EditBudget = () => {
         amount: budget.amount ? budget.amount.toString() : "",
       });
       setShowTable(!budget.budgetHasExpenses); // Show table if no expenses are linked
-      dispatch(fetchExpenses(budget.startDate, budget.endDate));
+      dispatch(getExpensesByBudget(id, budget.startDate, budget.endDate));
     }
   }, [budget, id, dispatch, today]);
 
@@ -71,7 +72,11 @@ const EditBudget = () => {
       const updatedFormData = { ...prev, [name]: value };
       if ((name === "startDate" || name === "endDate") && showTable) {
         dispatch(
-          fetchExpenses(updatedFormData.startDate, updatedFormData.endDate)
+          getExpensesByBudget(
+            id,
+            updatedFormData.startDate,
+            updatedFormData.endDate
+          )
         );
       }
       return updatedFormData;
@@ -92,6 +97,11 @@ const EditBudget = () => {
 
     if (Object.keys(newErrors).length === 0) {
       try {
+        // Collect expense IDs where includeInBudget is checked
+        const expenseIds = expenses
+          .filter((expense, index) => checkboxStates[index])
+          .map((expense) => expense.id);
+
         const budgetData = {
           id,
           name: formData.name.trim(),
@@ -99,6 +109,7 @@ const EditBudget = () => {
           startDate: formData.startDate,
           endDate: formData.endDate,
           amount: parseFloat(formData.amount) || 0,
+          expenseIds: expenseIds,
         };
 
         const updatedExpenses = expenses.map((expense, index) => ({
@@ -106,10 +117,11 @@ const EditBudget = () => {
           includeInBudget: checkboxStates[index],
         }));
 
+        console.log("Submitting budget data:", budgetData);
         await dispatch(editBudgetAction(budgetData.id, budgetData));
-        if (updatedExpenses.length > 0) {
-          await dispatch(editMultipleExpenseAction(updatedExpenses));
-        }
+        // if (updatedExpenses.length > 0) {
+        //   await dispatch(editMultipleExpenseAction(updatedExpenses));
+        // }
 
         navigate(
           `/budget?message=${encodeURIComponent(
@@ -135,7 +147,7 @@ const EditBudget = () => {
 
   const handleLinkExpenses = () => {
     setShowTable(true);
-    dispatch(fetchExpenses(formData.startDate, formData.endDate));
+    dispatch(getExpensesByBudget(id));
   };
 
   const handleCloseTable = () => {
@@ -304,7 +316,7 @@ const EditBudget = () => {
               Error: {expenseError.message || "Failed to load expenses."}
             </div>
           )}
-          <div className="mt-6 sm:mt-[50px] w-full flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="mt-4 sm:mt-[50px] w-full flex flex-col sm:flex-row items-center justify-between gap-2">
             <button
               onClick={handleLinkExpenses}
               className="px-6 py-2 bg-[#00DAC6] text-black font-semibold rounded hover:bg-[#00b8a0] w-full sm:w-[150px]"
@@ -354,6 +366,9 @@ const EditBudget = () => {
                             checked={checkboxStates[row.index]}
                             onChange={() => handleCheckboxChange(row.index)}
                             className="h-5 w-5 text-[#00dac6] border-gray-700 rounded focus:ring-[#00dac6]"
+                            style={{
+                              accentColor: "#00b8a0",
+                            }}
                           />
                         </div>
                       </div>

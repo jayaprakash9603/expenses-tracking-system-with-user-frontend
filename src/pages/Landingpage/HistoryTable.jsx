@@ -1,128 +1,228 @@
-import React, { useEffect, useState } from "react";
-import { Box, Skeleton } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import React, { useEffect, useRef, useState } from "react";
+import { Box, Skeleton, useMediaQuery } from "@mui/material";
+import {
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarQuickFilter,
+} from "@mui/x-data-grid";
 import { useDispatch, useSelector } from "react-redux";
 import {
   getExpenseHistory,
   getExpensesAction,
 } from "../../Redux/Expenses/expense.action";
+import { ThemeProvider, useTheme } from "@mui/material/styles";
+import { FilterList as FilterListIcon } from "@mui/icons-material";
+import { IconButton } from "@mui/material";
+import theme from "./theme";
 import ToastNotification from "./ToastNotification";
 
 const HistoryTable = () => {
   const dispatch = useDispatch();
   const { history, loading } = useSelector((state) => state.expenses || {});
+  const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState([]);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const apiRef = useRef(null);
+
+  const muiTheme = useTheme();
+  const isSmallScreen = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
   useEffect(() => {
     dispatch(getExpenseHistory());
+    dispatch(getExpensesAction());
   }, [dispatch]);
+
+  const handleSelectionChange = (newSelection) => {
+    if (!apiRef.current) {
+      setSelectedIds(newSelection);
+      return;
+    }
+
+    const paginationInfo = apiRef.current.state.pagination;
+    const page = paginationInfo.page;
+    const pageSize = paginationInfo.pageSize;
+
+    const allRows = apiRef.current.getRowModels();
+    const allRowIds = Array.from(allRows.keys());
+
+    const start = page * pageSize;
+    const end = start + pageSize;
+    const visibleRowIds = allRowIds.slice(start, end);
+
+    const isSelectAll =
+      visibleRowIds.every((id) => newSelection.includes(id)) &&
+      newSelection.length >= visibleRowIds.length;
+
+    if (isSelectAll) {
+      setSelectedIds(visibleRowIds);
+    } else {
+      setSelectedIds(newSelection);
+    }
+  };
 
   const handleToastClose = () => {
     setToastOpen(false);
     setToastMessage("");
   };
 
-  // Map API data to rows
   const rows = Array.isArray(history)
     ? history.map((item) => ({
         id: item.id,
         expenseId: item.expenseId,
         actionType: item.actionType,
         details: item.details,
-        timestamp: new Date(item.timestamp).toLocaleString(),
+        timestamp: isSmallScreen
+          ? new Date(item.timestamp).toLocaleDateString()
+          : new Date(item.timestamp).toLocaleString(),
       }))
     : [];
 
-  // Columns for audit data
-  const columns = [
-    { field: "id", headerName: "ID", flex: 0.5 },
-    { field: "expenseId", headerName: "Expense ID", flex: 0.8 },
-    { field: "actionType", headerName: "Action Type", flex: 1 },
-    { field: "details", headerName: "Details", flex: 3 },
-    { field: "timestamp", headerName: "Timestamp", flex: 1.5 },
+  const allColumns = [
+    {
+      field: "id",
+      headerName: "ID",
+      flex: 1,
+      minWidth: 80,
+      maxWidth: 120,
+    },
+    {
+      field: "expenseId",
+      headerName: "Expense ID",
+      flex: 1,
+      minWidth: 100,
+      maxWidth: 150,
+    },
+    {
+      field: "actionType",
+      headerName: "Action Type",
+      flex: 1,
+      minWidth: 100,
+      maxWidth: 160,
+    },
+    {
+      field: "details",
+      headerName: "Details",
+      flex: 1,
+      minWidth: isSmallScreen ? 250 : 450,
+      maxWidth: isSmallScreen ? 200 : 550,
+    },
+    {
+      field: "timestamp",
+      headerName: isSmallScreen ? "Time" : "Timestamp",
+      flex: 1,
+      minWidth: isSmallScreen ? 50 : 120,
+      maxWidth: isSmallScreen ? 90 : 200,
+    },
   ];
 
-  return (
-    <Box
-      sx={{ height: 700, width: "100%", bgcolor: "#121212", padding: "10px" }}
+  const smallScreenColumns = allColumns.filter((col) =>
+    ["details", "timestamp"].includes(col.field)
+  );
+
+  const columns = isSmallScreen ? smallScreenColumns : allColumns;
+
+  const CustomToolbar = () => (
+    <GridToolbarContainer
+      sx={{
+        display: "flex",
+        gap: 1,
+        p: 1,
+        flexDirection: isSmallScreen ? "row" : "row",
+      }}
     >
+      <GridToolbarQuickFilter
+        sx={{
+          "& .MuiInputBase-root": {
+            backgroundColor: "#1b1b1b",
+            color: "#ffffff",
+            borderRadius: "8px",
+          },
+          "& .MuiInputBase-input::placeholder": {
+            color: "#666666",
+          },
+        }}
+      />
+      <IconButton sx={{ color: "#00dac6" }}>
+        <FilterListIcon />
+      </IconButton>
+    </GridToolbarContainer>
+  );
+
+  const tableHeight = 700;
+  const rowHeight = isSmallScreen ? 42 : 53;
+  const headerHeight = isSmallScreen ? 45 : 52;
+
+  return (
+    <ThemeProvider theme={theme}>
       <ToastNotification
         open={toastOpen}
         message={toastMessage}
         onClose={handleToastClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       />
-
-      {loading ? (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <Skeleton
-            variant="rectangular"
-            height={40}
-            sx={{ bgcolor: "#2c2c2c", borderRadius: 1 }}
-          />
-          {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              variant="rectangular"
-              height={45}
-              sx={{ bgcolor: "#1f1f1f", borderRadius: 1 }}
-            />
-          ))}
-        </Box>
-      ) : (
-        <DataGrid
-          rows={rows}
-          columns={columns}
-          pageSize={pageSize}
-          onPageSizeChange={(newSize) => setPageSize(newSize)}
-          rowsPerPageOptions={[10, 20, 50, 100]}
-          checkboxSelection
-          disableSelectionOnClick
-          onSelectionModelChange={(newSelection) =>
-            setSelectedIds(newSelection)
-          }
-          sx={{
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "#0b0b0b",
-              color: "#00dac6",
-              fontWeight: "bold",
-            },
-            "& .MuiDataGrid-cell": {
-              backgroundColor: "#1b1b1b",
-              color: "#fff",
-            },
-            "& .MuiDataGrid-row:hover": {
-              backgroundColor: "#28282a",
-            },
-            "& .MuiCheckbox-root svg": {
-              fill: "#666666",
-            },
-            "& .Mui-checked .MuiSvgIcon-root": {
-              color: "#00dac6",
-            },
-            "& .MuiDataGrid-footerContainer": {
-              backgroundColor: "#1b1b1b",
-              color: "#00dac6",
-            },
-            "& .MuiDataGrid-footerContainer .MuiTypography-root": {
-              color: "#00dac6",
-            },
-            "& .MuiDataGrid-footerContainer .MuiPaginationItem-root": {
-              color: "#00dac6",
-            },
-            "& .MuiPaginationItem-root, .MuiDataGrid-sortIcon, .MuiIconButton-root":
-              {
-                color: "#00dac6",
+      <Box
+        sx={{
+          height: tableHeight,
+          width: "100%",
+          backgroundColor: "#0b0b0b",
+        }}
+      >
+        {loading ? (
+          <Box sx={{ height: tableHeight, overflow: "hidden" }}>
+            {[...Array(15)].map((_, index) => (
+              <Skeleton
+                key={index}
+                sx={{
+                  height: rowHeight,
+                  width: "100%",
+                  mb: index < 14 ? "3px" : 0,
+                  borderRadius: "4px",
+                  backgroundColor: "#0b0b0b",
+                }}
+              />
+            ))}
+          </Box>
+        ) : (
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            paginationMode="client"
+            pageSizeOptions={[10, 15, 20]}
+            paginationModel={{ page: pageIndex, pageSize }}
+            onPaginationModelChange={(model) => {
+              setPageIndex(model.page);
+              setPageSize(model.pageSize);
+              setSelectedIds([]);
+            }}
+            rowHeight={isSmallScreen ? 53 : 53}
+            headerHeight={isSmallScreen ? 45 : 40}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowSelectionModel={selectedIds}
+            onRowSelectionModelChange={handleSelectionChange}
+            apiRef={apiRef}
+            slots={{ toolbar: CustomToolbar }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 500 },
               },
-            "& .MuiPaginationItem-root:hover, .MuiIconButton-root:hover": {
-              backgroundColor: "rgba(0, 218, 198, 0.1)",
-            },
-          }}
-        />
-      )}
-    </Box>
+            }}
+            sx={{
+              "& .MuiDataGrid-cell": {
+                fontSize: isSmallScreen ? "0.75rem" : "0.875rem",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": {
+                fontSize: isSmallScreen ? "0.8rem" : "0.9rem",
+              },
+            }}
+          />
+        )}
+      </Box>
+    </ThemeProvider>
   );
 };
 
