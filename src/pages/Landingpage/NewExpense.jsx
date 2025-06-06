@@ -13,10 +13,11 @@ import {
 } from "@tanstack/react-table";
 import { getListOfBudgetsById } from "../../Redux/Budget/budget.action";
 import { useNavigate, useLocation } from "react-router-dom";
+import { fetchCategories } from "../../Redux/Category/categoryActions";
 
 const fieldStyles =
-  "px-3 py-2 rounded bg-[#29282b] text-white border border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00dac6] w-full text-base sm:max-w-[350px] max-w-[250px]";
-const labelStyle = "text-white text-sm sm:text-base font-semibold mr-2";
+  "px-3 py-2 rounded bg-[#29282b] text-white border border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00dac6] w-full text-base sm:max-w-[300px] max-w-[200px]";
+const labelStyle = "text-white text-sm sm:text-base font-semibold mr-4";
 const formRow = "mt-4 flex flex-col sm:flex-row sm:items-center gap-2 w-full";
 const firstFormRow =
   "mt-2 flex flex-col sm:flex-row sm:items-center gap-2 w-full";
@@ -36,6 +37,11 @@ const NewExpense = ({ onClose, onSuccess }) => {
   const { budgets, error: budgetError } = useSelector(
     (state) => state.budgets || {}
   );
+  const {
+    categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+  } = useSelector((state) => state.categories || {});
   const dispatch = useDispatch();
   const [expenseData, setExpenseData] = useState({
     expenseName: "",
@@ -68,6 +74,11 @@ const NewExpense = ({ onClose, onSuccess }) => {
   // Fetch expenses suggestions
   useEffect(() => {
     dispatch(getExpensesSuggestions());
+  }, [dispatch]);
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    dispatch(fetchCategories());
   }, [dispatch]);
 
   // Set initial type based on salary date logic if dateFromQuery is present
@@ -126,6 +137,11 @@ const NewExpense = ({ onClose, onSuccess }) => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setExpenseData({ ...expenseData, [name]: value });
+
+    // Clear the error for this field when the user updates it
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: false });
+    }
   };
 
   const handleDateChange = (e) => {
@@ -153,6 +169,11 @@ const NewExpense = ({ onClose, onSuccess }) => {
       transactionType: isSalary ? "gain" : "loss",
     }));
 
+    // Clear the date error when the user updates it
+    if (errors.date) {
+      setErrors({ ...errors, date: false });
+    }
+
     // Dispatch getListOfBudgetsById with the selected date
     dispatch(getListOfBudgetsById(value));
   };
@@ -160,10 +181,10 @@ const NewExpense = ({ onClose, onSuccess }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (!expenseData.expenseName)
-      newErrors.expenseName = "Expense title is required.";
-    if (!expenseData.amount) newErrors.amount = "Amount is required.";
-    if (!expenseData.date) newErrors.date = "Date is required.";
+    if (!expenseData.expenseName) newErrors.expenseName = true;
+    if (!expenseData.amount) newErrors.amount = true;
+    if (!expenseData.date) newErrors.date = true;
+    if (!expenseData.transactionType) newErrors.transactionType = true;
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
@@ -175,12 +196,13 @@ const NewExpense = ({ onClose, onSuccess }) => {
       createExpenseAction({
         date: expenseData.date,
         budgetIds: budgetIds,
+        categoryId: expenseData.category,
         expense: {
           expenseName: expenseData.expenseName,
           amount: expenseData.amount,
           netAmount: expenseData.amount,
           paymentMethod: expenseData.paymentMethod,
-          type: expenseData.transactionType,
+          type: expenseData.transactionType.toLowerCase(),
           comments: expenseData.comments,
           creditDue: expenseData.creditDue || 0,
         },
@@ -212,7 +234,6 @@ const NewExpense = ({ onClose, onSuccess }) => {
       prev.map((state, i) => (i === index ? !state : state))
     );
   };
-
   const renderInput = (id, type = "text", isTextarea = false) => (
     <div className="flex flex-col flex-1">
       <div className="flex items-center">
@@ -220,6 +241,9 @@ const NewExpense = ({ onClose, onSuccess }) => {
           {id
             .replace(/([A-Z])/g, " $1")
             .replace(/^./, (str) => str.toUpperCase())}
+          {["expenseName", "amount", "date", "transactionType"].includes(
+            id
+          ) && <span className="text-red-500"> *</span>}
         </label>
         {isTextarea ? (
           <textarea
@@ -230,6 +254,11 @@ const NewExpense = ({ onClose, onSuccess }) => {
             placeholder={`Enter ${id}`}
             rows="3"
             className={fieldStyles}
+            style={{
+              height: "80px",
+              borderColor: errors[id] ? "#ff4d4f" : "rgb(75, 85, 99)",
+              borderWidth: errors[id] ? "2px" : "1px",
+            }}
           />
         ) : (
           <input
@@ -240,14 +269,13 @@ const NewExpense = ({ onClose, onSuccess }) => {
             onChange={handleInputChange}
             placeholder={`Enter ${id}`}
             className={fieldStyles}
+            style={{
+              borderColor: errors[id] ? "#ff4d4f" : "rgb(75, 85, 99)",
+              borderWidth: errors[id] ? "2px" : "1px",
+            }}
           />
         )}
       </div>
-      {errors[id] && (
-        <span className="text-red-500 text-sm ml-[150px] sm:ml-[170px]">
-          {errors[id]}
-        </span>
-      )}
     </div>
   );
 
@@ -281,26 +309,113 @@ const NewExpense = ({ onClose, onSuccess }) => {
     </div>
   );
 
-  const renderCustomDateInput = () => (
+  const renderAmountInput = () => (
+    <div className="flex flex-col flex-1">
+      <div className="flex items-center">
+        <label htmlFor="amount" className={labelStyle} style={inputWrapper}>
+          Amount<span className="text-red-500"> *</span>
+        </label>
+        <TextField
+          id="amount"
+          name="amount"
+          type="number"
+          value={expenseData.amount || ""}
+          onChange={(e) => {
+            handleInputChange(e);
+
+            // Clear the error when the user types
+            if (errors.amount) {
+              setErrors({ ...errors, amount: false });
+            }
+          }}
+          placeholder="Enter amount"
+          variant="outlined"
+          error={errors.amount}
+          InputProps={{
+            className: fieldStyles,
+            style: {
+              height: "52px",
+              borderColor: errors.amount ? "#ff4d4f" : "rgb(75, 85, 99)",
+              borderWidth: errors.amount ? "2px" : "1px",
+            },
+          }}
+          sx={{
+            width: "100%",
+            maxWidth: "300px",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": {
+                borderColor: errors.amount ? "#ff4d4f" : "rgb(75, 85, 99)",
+                borderWidth: errors.amount ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+              "&:hover fieldset": {
+                borderColor: errors.amount ? "#ff4d4f" : "rgb(75, 85, 99)",
+                borderWidth: errors.amount ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+              "&.Mui-focused fieldset": {
+                borderColor: errors.amount ? "#ff4d4f" : "#00dac6",
+                borderWidth: errors.amount ? "2px" : "2px",
+                borderStyle: "solid",
+              },
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: errors.amount ? "#ff4d4f" : "rgb(75, 85, 99)",
+                borderWidth: errors.amount ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+            },
+          }}
+        />
+      </div>
+    </div>
+  );
+
+  const renderDateInput = () => (
     <div className="flex flex-col flex-1">
       <div className="flex items-center">
         <label htmlFor="date" className={labelStyle} style={inputWrapper}>
-          Date
+          Date<span className="text-red-500"> *</span>
         </label>
-        <input
+        <TextField
           id="date"
           name="date"
           type="date"
-          value={expenseData.date}
-          onChange={handleDateChange}
-          className={fieldStyles}
+          value={expenseData.date || ""}
+          onChange={(e) => handleDateChange(e)}
+          variant="outlined"
+          error={errors.date}
+          InputProps={{
+            className: fieldStyles,
+            style: { height: "52px" },
+          }}
+          sx={{
+            width: "100%",
+            maxWidth: "300px",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": {
+                borderColor: errors.date ? "#ff4d4f" : "rgb(75, 85, 99)",
+                borderWidth: errors.date ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+              "&:hover fieldset": {
+                borderColor: errors.date ? "#ff4d4f" : "rgb(75, 85, 99)",
+                borderWidth: errors.date ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+              "&.Mui-focused fieldset": {
+                borderColor: errors.date ? "#ff4d4f" : "#00dac6",
+                borderWidth: errors.date ? "2px" : "2px",
+                borderStyle: "solid",
+              },
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: errors.date ? "#ff4d4f" : "rgb(75, 85, 99)",
+                borderWidth: errors.date ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+            },
+          }}
         />
       </div>
-      {errors.date && (
-        <span className="text-red-500 text-sm ml-[150px] sm:ml-[170px]">
-          {errors.date}
-        </span>
-      )}
     </div>
   );
 
@@ -312,7 +427,7 @@ const NewExpense = ({ onClose, onSuccess }) => {
           className={labelStyle}
           style={inputWrapper}
         >
-          Expense Name
+          Expense Name<span className="text-red-500"> *</span>
         </label>
         <Autocomplete
           freeSolo
@@ -320,60 +435,35 @@ const NewExpense = ({ onClose, onSuccess }) => {
           options={suggestions}
           loading={loading}
           loadingText="Loading"
-          noOptionsText="No Data Found"
-          value={expenseData.expenseName}
+          noOptionsText={expenseData?.expenseName ? "No Data Found" : ""}
+          value={expenseData?.expenseName || ""}
           onInputChange={(event, newValue) => {
             setExpenseData((prev) => ({ ...prev, expenseName: newValue }));
             fetchSuggestions(newValue);
+
+            // Clear the error when the user types
+            if (errors.expenseName) {
+              setErrors({ ...errors, expenseName: false });
+            }
           }}
-          // onFocus={() => {
-          //   if (expenseData.expenseName) {
-          //     fetchSuggestions(expenseData.expenseName);
-          //   }
-          // }}
           onChange={(event, newValue) => {
             setExpenseData((prev) => ({ ...prev, expenseName: newValue }));
           }}
           openOnFocus
           sx={{
             width: "100%",
-            maxWidth: "350px",
-            "& .MuiInputBase-root": {
-              backgroundColor: "#29282b",
-              color: "white",
-            },
-            "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: "#444",
-            },
-            "&:hover .MuiOutlinedInput-notchedOutline": {
-              borderColor: "#00dac6",
-            },
-            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              borderColor: "#00dac6",
-            },
-            "& .MuiAutocomplete-listbox": {
-              backgroundColor: "#29282b",
-              color: "white",
-              "& .MuiAutocomplete-noOptions": {
-                color: "white",
-                padding: "8px 16px",
+            maxWidth: "300px",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": {
+                borderColor: errors.expenseName ? "#ff4d4f" : "rgb(75, 85, 99)",
+                borderWidth: errors.expenseName ? "2px" : "1px",
               },
-            },
-            "& .MuiAutocomplete-option": {
-              backgroundColor: "transparent",
-              color: "white",
-              "&[aria-selected='true']": {
-                backgroundColor: "#00dac6",
+              "&:hover fieldset": {
+                borderColor: errors.expenseName ? "#ff4d4f" : "rgb(75, 85, 99)",
               },
-              "&:hover": {
-                backgroundColor: "#444",
+              "&.Mui-focused fieldset": {
+                borderColor: errors.expenseName ? "#ff4d4f" : "#00dac6",
               },
-            },
-            "& .MuiAutocomplete-clearIndicator": {
-              color: "white",
-            },
-            "& .MuiAutocomplete-popupIndicator": {
-              color: "white",
             },
           }}
           renderInput={(params) => (
@@ -381,6 +471,7 @@ const NewExpense = ({ onClose, onSuccess }) => {
               {...params}
               placeholder="Enter expense name"
               variant="outlined"
+              error={errors.expenseName}
               InputProps={{
                 ...params.InputProps,
                 endAdornment: (
@@ -397,18 +488,239 @@ const NewExpense = ({ onClose, onSuccess }) => {
           renderOption={(props, option, { inputValue }) => {
             const { key, ...optionProps } = props;
             return (
-              <li key={key} {...optionProps}>
+              <li key={key} {...optionProps} className="mb-2 ml-3">
                 <div>{highlightText(option, inputValue)}</div>
               </li>
             );
           }}
         />
       </div>
-      {errors.expenseName && (
+    </div>
+  );
+
+  const renderCategoryAutocomplete = () => (
+    <div className="flex flex-col flex-1">
+      <div className="flex items-center">
+        <label htmlFor="category" className={labelStyle} style={inputWrapper}>
+          Category
+        </label>
+        <Autocomplete
+          autoHighlight
+          options={categories}
+          getOptionLabel={(option) => option.name || ""}
+          value={
+            categories.find((cat) => cat.id === expenseData.category) || null
+          }
+          onInputChange={(event, newValue) => {
+            const matchedCategory = categories.find(
+              (cat) => cat.name.toLowerCase() === newValue.toLowerCase()
+            );
+            setExpenseData((prev) => ({
+              ...prev,
+              category: matchedCategory ? matchedCategory.id : "",
+            }));
+          }}
+          onChange={(event, newValue) => {
+            setExpenseData((prev) => ({
+              ...prev,
+              category: newValue ? newValue.id : "",
+            }));
+          }}
+          noOptionsText="No options found"
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Search category"
+              variant="outlined"
+              InputProps={{
+                ...params.InputProps,
+                className: fieldStyles,
+              }}
+            />
+          )}
+          renderOption={(props, option, { inputValue }) => {
+            const { key, ...optionProps } = props;
+            return (
+              <li
+                key={key}
+                {...optionProps}
+                className="flex items-center mb-2 ml-3"
+              >
+                <img
+                  src={require("../../assests/save-money.png")}
+                  alt="category-icon"
+                  className="w-5 h-5 mr-2"
+                  style={{
+                    filter:
+                      "invert(50%) sepia(100%) saturate(500%) hue-rotate(150deg) brightness(1) contrast(1)",
+                  }}
+                />
+                <div>{highlightText(option.name, inputValue)}</div>
+              </li>
+            );
+          }}
+          sx={{
+            width: "100%",
+            maxWidth: "300px",
+          }}
+        />
+      </div>
+      {errors.category && (
         <span className="text-red-500 text-sm ml-[150px] sm:ml-[170px]">
-          {errors.expenseName}
+          {errors.category}
         </span>
       )}
+    </div>
+  );
+
+  const renderPaymentMethodAutocomplete = () => (
+    <div className="flex flex-col flex-1">
+      <div className="flex items-center">
+        <label
+          htmlFor="paymentMethod"
+          className={labelStyle}
+          style={inputWrapper}
+        >
+          Payment Method
+        </label>
+        <Autocomplete
+          autoHighlight
+          options={["Cash", "Credit Need to Paid", "Credit Paid"]}
+          getOptionLabel={(option) => option}
+          value={expenseData.paymentMethod || ""}
+          onInputChange={(event, newValue) => {
+            setExpenseData((prev) => ({ ...prev, paymentMethod: newValue }));
+          }}
+          onChange={(event, newValue) => {
+            setExpenseData((prev) => ({ ...prev, paymentMethod: newValue }));
+          }}
+          noOptionsText="No options found"
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Select payment method"
+              variant="outlined"
+              InputProps={{
+                ...params.InputProps,
+                className: fieldStyles,
+              }}
+            />
+          )}
+          renderOption={(props, option, { inputValue }) => {
+            const { key, ...optionProps } = props;
+            return (
+              <li
+                key={key}
+                {...optionProps}
+                className="flex items-center mb-2 ml-3"
+              >
+                <div>{highlightText(option, inputValue)}</div>
+              </li>
+            );
+          }}
+          sx={{
+            width: "100%",
+            maxWidth: "300px",
+          }}
+        />
+      </div>
+      {errors.paymentMethod && (
+        <span className="text-red-500 text-sm ml-[150px] sm:ml-[170px]">
+          {errors.paymentMethod}
+        </span>
+      )}
+    </div>
+  );
+  const renderTransactionTypeAutocomplete = () => (
+    <div className="flex flex-col flex-1">
+      <div className="flex items-center">
+        <label
+          htmlFor="transactionType"
+          className={labelStyle}
+          style={inputWrapper}
+        >
+          Transaction Type<span className="text-red-500"> *</span>
+        </label>
+        <Autocomplete
+          autoHighlight
+          options={["Gain", "Loss"]}
+          getOptionLabel={(option) => option}
+          value={expenseData.transactionType || ""}
+          onInputChange={(event, newValue) => {
+            setExpenseData((prev) => ({ ...prev, transactionType: newValue }));
+
+            // Clear the error when the user types
+            if (errors.transactionType) {
+              setErrors({ ...errors, transactionType: false });
+            }
+          }}
+          onChange={(event, newValue) => {
+            setExpenseData((prev) => ({ ...prev, transactionType: newValue }));
+
+            // Clear the error when the user selects a value
+            if (errors.transactionType) {
+              setErrors({ ...errors, transactionType: false });
+            }
+          }}
+          noOptionsText="No options found"
+          sx={{
+            width: "100%",
+            maxWidth: "300px",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": {
+                borderColor: errors.transactionType
+                  ? "#ff4d4f"
+                  : "rgb(75, 85, 99)",
+                borderWidth: errors.transactionType ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+              "&:hover fieldset": {
+                borderColor: errors.transactionType
+                  ? "#ff4d4f"
+                  : "rgb(75, 85, 99)",
+                borderWidth: errors.transactionType ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+              "&.Mui-focused fieldset": {
+                borderColor: errors.transactionType ? "#ff4d4f" : "#00dac6",
+                borderWidth: errors.transactionType ? "2px" : "2px",
+                borderStyle: "solid",
+              },
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: errors.transactionType
+                  ? "#ff4d4f"
+                  : "rgb(75, 85, 99)",
+                borderWidth: errors.transactionType ? "2px" : "1px",
+                borderStyle: "solid",
+              },
+            },
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Select transaction type"
+              variant="outlined"
+              error={errors.transactionType}
+              InputProps={{
+                ...params.InputProps,
+                className: fieldStyles,
+              }}
+            />
+          )}
+          renderOption={(props, option, { inputValue }) => {
+            const { key, ...optionProps } = props;
+            return (
+              <li
+                key={key}
+                {...optionProps}
+                className="flex items-center mb-2 ml-3"
+              >
+                <div>{highlightText(option, inputValue)}</div>
+              </li>
+            );
+          }}
+        />
+      </div>
     </div>
   );
 
@@ -488,7 +800,7 @@ const NewExpense = ({ onClose, onSuccess }) => {
 
   return (
     <>
-      <div class="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>
+      <div className="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>
       <div
         className="flex flex-col relative new-expense-container"
         style={{
@@ -518,21 +830,20 @@ const NewExpense = ({ onClose, onSuccess }) => {
         </div>
         <hr className="border-t border-gray-600 w-full mt-[-4px]" />
 
-        <div className={firstFormRow}>
-          {renderExpenseNameWithSuggestions()}
-          {renderInput("amount", "number")}
-        </div>
-        <div className={formRow}>
-          {renderCustomDateInput()}
-          {renderSelect("transactionType", ["gain", "loss"])}
-        </div>
-        <div className={formRow}>
-          {renderSelect("paymentMethod", [
-            "cash",
-            "creditNeedToPaid",
-            "creditPaid",
-          ])}
-          {renderInput("comments", "text", true)}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-1 gap-4 items-center">
+            {renderExpenseNameWithSuggestions()}
+            {renderAmountInput()}
+            {renderDateInput()}
+          </div>
+          <div className="flex flex-1 gap-4 items-center">
+            {renderTransactionTypeAutocomplete()}
+            {renderCategoryAutocomplete()}
+            {renderPaymentMethodAutocomplete()}
+          </div>
+          <div className="flex flex-1 items-center">
+            {renderInput("comments", "text", true)}
+          </div>
         </div>
 
         <div className="mt-4 sm:mt-[50px] w-full flex flex-col sm:flex-row items-center justify-between gap-2">
@@ -846,8 +1157,7 @@ const NewExpense = ({ onClose, onSuccess }) => {
       }
       .overflow-y-auto::-webkit-scrollbar {
         width: 6px;
-      }
-      .overflow-x-auto::-webkit-scrollbar {
+      }      .overflow-x-auto::-webkit-scrollbar {
         height: 6px;
       }
     }
