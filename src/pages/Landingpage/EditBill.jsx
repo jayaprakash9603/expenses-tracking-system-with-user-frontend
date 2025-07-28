@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-
 import ItemNameAutocomplete from "./ItemNameAutocomplete";
 import {
   Autocomplete,
@@ -23,7 +22,7 @@ import {
 import { getListOfBudgetsById } from "../../Redux/Budget/budget.action";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { fetchCategories } from "../../Redux/Category/categoryActions";
-import { createBill } from "../../Redux/Bill/bill.action";
+import { updateBill, getBillById } from "../../Redux/Bill/bill.action";
 import { fetchAllPaymentMethods } from "../../Redux/Payment Method/paymentMethod.action";
 
 const labelStyle = "text-white text-sm sm:text-base font-semibold mr-4";
@@ -34,37 +33,37 @@ const inputWrapper = {
   alignItems: "center",
 };
 
-const CreateBill = ({ onClose, onSuccess }) => {
+const EditBill = ({ onClose, onSuccess, billId }) => {
   const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const dateFromQuery = searchParams.get("date");
-
   const navigate = useNavigate();
-  const today = new Date().toISOString().split("T")[0];
   const dispatch = useDispatch();
-  const { friendId } = useParams();
+  const { id, friendId } = useParams();
   const lastRowRef = useRef(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const currentBillId = billId || id;
+
   const {
-    budgets,
+    budgets = [],
     error: budgetError,
     loading: budgetLoading,
   } = useSelector((state) => state.budgets || {});
   const {
-    categories,
+    categories = [],
     loading: categoriesLoading,
     error: categoriesError,
   } = useSelector((state) => state.categories || {});
   const {
-    paymentMethods,
+    paymentMethods = [],
     loading: paymentMethodsLoading,
     error: paymentMethodsError,
   } = useSelector((state) => state.paymentMethods || {});
+  const { loading: billLoading } = useSelector((state) => state.bills || {});
 
   const [hasUnsavedExpenseChanges, setHasUnsavedExpenseChanges] =
     useState(false);
-
-  // Add loading state for bill creation
-  const { loading: billLoading } = useSelector((state) => state.bills || {});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const [billData, setBillData] = useState({
     name: "",
@@ -72,13 +71,13 @@ const CreateBill = ({ onClose, onSuccess }) => {
     amount: "",
     paymentMethod: "cash",
     type: "loss",
-    date: dateFromQuery || today,
+    date: "",
     categoryId: "",
   });
 
   const [expenses, setExpenses] = useState([]);
   const [tempExpenses, setTempExpenses] = useState([
-    { itemName: "", quantity: 1, unitPrice: "", totalPrice: 0 },
+    { itemName: "", quantity: 1, unitPrice: "", totalPrice: 0, comments: "" },
   ]);
 
   const [errors, setErrors] = useState({});
@@ -87,21 +86,83 @@ const CreateBill = ({ onClose, onSuccess }) => {
   const [checkboxStates, setCheckboxStates] = useState([]);
   const [selectedBudgets, setSelectedBudgets] = useState([]);
   const [localPaymentMethods, setLocalPaymentMethods] = useState([]);
-  const [localPaymentMethodsLoading, setLocalPaymentMethodsLoading] =
-    useState(false);
-  const [localPaymentMethodsError, setLocalPaymentMethodsError] =
-    useState(null);
+
+  // Load bill data on component mount
+  useEffect(() => {
+    const loadBillData = async () => {
+      if (!currentBillId) {
+        setLoadError("No bill ID provided");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+
+        const billResponse = await dispatch(
+          getBillById(currentBillId, friendId || "")
+        );
+        let bill = billResponse?.payload || billResponse?.data || billResponse;
+
+        if (!bill || !bill.id) {
+          throw new Error("Bill data is missing or invalid");
+        }
+
+        setBillData({
+          name: bill.name || "",
+          description: bill.description || "",
+          amount: bill.amount?.toString() || "0",
+          paymentMethod: bill.paymentMethod || "cash",
+          type: bill.type || "loss",
+          date: bill.date || "",
+          categoryId: bill.categoryId || "",
+        });
+
+        if (
+          bill.expenses &&
+          Array.isArray(bill.expenses) &&
+          bill.expenses.length > 0
+        ) {
+          const formattedExpenses = bill.expenses.map((expense, index) => ({
+            itemName: expense.itemName || expense.expenseName || "",
+            quantity: expense.quantity || 1,
+            unitPrice:
+              expense.unitPrice?.toString() || expense.amount?.toString() || "",
+            totalPrice: expense.totalPrice || expense.amount || 0,
+            comments: expense.comments || "",
+          }));
+          setExpenses(formattedExpenses);
+        } else {
+          setExpenses([]);
+        }
+
+        if (bill.budgetIds && Array.isArray(bill.budgetIds)) {
+          setSelectedBudgets(bill.budgetIds);
+        } else {
+          setSelectedBudgets([]);
+        }
+      } catch (error) {
+        console.error("Error loading bill:", error);
+        setLoadError(error.message || "Failed to load bill data");
+      } finally {
+        setIsLoading(false);
+        setIsInitialLoad(false); // Mark initial load as complete
+      }
+    };
+
+    loadBillData();
+  }, [currentBillId, dispatch, id]);
 
   const formatPaymentMethodName = (name) => {
     switch (name.toLowerCase()) {
       case "cash":
         return "Cash";
-      case "creditNeedToPaid":
+      case "creditneedtopaid":
         return "Credit Due";
-      case "creditPaid":
+      case "creditpaid":
         return "Credit Paid";
       default:
-        // For other payment methods, convert to title case
         return name
           .replace(/([A-Z])/g, " $1")
           .replace(/^./, (str) => str.toUpperCase())
@@ -117,74 +178,63 @@ const CreateBill = ({ onClose, onSuccess }) => {
     { name: "creditPaid", label: "Credit Paid", type: "income" },
     { name: "creditNeedToPaid", label: "Credit Due", type: "income" },
   ];
-  // Payment method options
-  // Fix the filtering logic in processedPaymentMethods
-  const processedPaymentMethods = useMemo(() => {
-    console.log("Processing local payment methods:", {
-      localPaymentMethods,
-      isArray: Array.isArray(localPaymentMethods),
-      length: localPaymentMethods?.length,
-      billType: billData.type,
-    });
 
+  const processedPaymentMethods = useMemo(() => {
     let availablePaymentMethods = [];
 
-    // If we have valid payment methods from local state
     if (Array.isArray(localPaymentMethods) && localPaymentMethods.length > 0) {
-      // Filter payment methods based on bill type
-      const filteredMethods = localPaymentMethods.filter((pm) => {
-        if (billData.type === "loss") {
-          // Show payment methods with type "expense"
-          return pm.type && pm.type.toLowerCase() === "expense";
-        } else if (billData.type === "gain") {
-          // Show payment methods with type "income"
-          return pm.type && pm.type.toLowerCase() === "income";
-        }
-        // If no type is selected, show all
-        return true;
-      });
-
-      availablePaymentMethods = filteredMethods.map((pm) => ({
-        value: pm.name,
-        label: formatPaymentMethodName(pm.name),
-        ...pm,
-      }));
+      availablePaymentMethods = localPaymentMethods
+        .filter((pm) => {
+          if (billData.type === "loss") {
+            return pm.type && pm.type.toLowerCase() === "expense";
+          } else if (billData.type === "gain") {
+            return pm.type && pm.type.toLowerCase() === "income";
+          }
+          return true;
+        })
+        .map((pm) => ({
+          value: pm.name,
+          label: formatPaymentMethodName(pm.name),
+          type: pm.type,
+        }));
     }
 
-    // If no filtered methods available, use default fallback based on type
     if (availablePaymentMethods.length === 0) {
-      console.log(
-        "Using default payment methods as fallback for type:",
-        billData.type
-      );
-
-      // Filter default methods by both name AND type
-      const defaultMethodsForType = defaultPaymentMethods.filter((pm) => {
-        if (billData.type === "loss") {
-          // Only return expense type payment methods
-          return pm.type === "expense";
-        } else if (billData.type === "gain") {
-          // Only return income type payment methods
-          return pm.type === "income";
-        }
-        return true;
-      });
-
-      availablePaymentMethods = defaultMethodsForType.map((pm) => ({
-        value: pm.name,
-        label: pm.label,
-        type: pm.type, // Include type in the mapped object
-      }));
+      availablePaymentMethods = defaultPaymentMethods
+        .filter((pm) => {
+          if (billData.type === "loss") {
+            return pm.type === "expense";
+          } else if (billData.type === "gain") {
+            return pm.type === "income";
+          }
+          return true;
+        })
+        .map((pm) => ({
+          value: pm.name,
+          label: pm.label,
+          type: pm.type,
+        }));
     }
 
-    console.log("Final available payment methods:", availablePaymentMethods);
     return availablePaymentMethods;
   }, [localPaymentMethods, billData.type]);
 
-  // Type options
-  const typeOptions = ["gain", "loss"];
+  // Update payment method only if necessary
+  useEffect(() => {
+    if (!isInitialLoad && processedPaymentMethods.length > 0) {
+      const currentMethodValid = processedPaymentMethods.some(
+        (pm) => pm.value === billData.paymentMethod
+      );
+      const newPaymentMethod = processedPaymentMethods[0]?.value || "cash";
 
-  // Validation function for expense items
+      if (!currentMethodValid && billData.paymentMethod !== newPaymentMethod) {
+        setBillData((prev) => ({
+          ...prev,
+          paymentMethod: newPaymentMethod,
+        }));
+      }
+    }
+  }, [processedPaymentMethods, isInitialLoad]);
 
   const isCurrentRowComplete = (expense) => {
     if (!expense) return false;
@@ -196,14 +246,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
       expense.unitPrice !== undefined &&
       !isNaN(parseFloat(expense.unitPrice)) &&
       parseFloat(expense.unitPrice) > 0 &&
-      !expense.unitPrice.toString().includes("-"); // Ensure no negative sign
+      !expense.unitPrice.toString().includes("-");
     const hasValidQuantity =
       expense.quantity !== "" &&
       expense.quantity !== null &&
       expense.quantity !== undefined &&
       !isNaN(parseFloat(expense.quantity)) &&
       parseFloat(expense.quantity) > 0 &&
-      !expense.quantity.toString().includes("-"); // Ensure no negative sign
+      !expense.quantity.toString().includes("-");
 
     return hasItemName && hasValidUnitPrice && hasValidQuantity;
   };
@@ -211,157 +261,105 @@ const CreateBill = ({ onClose, onSuccess }) => {
   useEffect(() => {
     const fetchPaymentMethods = async () => {
       try {
-        setLocalPaymentMethodsLoading(true);
-        setLocalPaymentMethodsError(null);
-
-        console.log(
-          "Fetching payment methods for friendId:",
-          friendId || "current user"
-        );
-
-        // Dispatch the action and wait for the result
         const resultAction = await dispatch(
           fetchAllPaymentMethods(friendId || "")
         );
-
-        console.log("Payment methods action result:", resultAction);
-
-        // Check if the action was successful and extract the payload
-        if (resultAction) {
-          const paymentMethodsData = resultAction || resultAction || [];
-          console.log("Setting local payment methods:", paymentMethodsData);
-          setLocalPaymentMethods(
-            Array.isArray(paymentMethodsData) ? paymentMethodsData : []
-          );
-        } else {
-          const errorMessage =
-            resultAction.error?.message ||
-            resultAction.payload ||
-            "Failed to fetch payment methods";
-          console.error("Payment methods fetch failed:", errorMessage);
-          setLocalPaymentMethodsError(errorMessage);
-        }
+        const paymentMethodsData = resultAction?.payload || resultAction || [];
+        setLocalPaymentMethods(
+          Array.isArray(paymentMethodsData) ? paymentMethodsData : []
+        );
       } catch (error) {
         console.error("Error fetching payment methods:", error);
-        setLocalPaymentMethodsError(
-          error.message || "Failed to fetch payment methods"
-        );
-      } finally {
-        setLocalPaymentMethodsLoading(false);
       }
     };
 
     fetchPaymentMethods();
   }, [dispatch]);
-  // Fetch budgets on component mount
-  useEffect(() => {
-    dispatch(getListOfBudgetsById(today, friendId || ""));
-  }, [dispatch, today]);
 
-  // Update checkbox states when budgets change
   useEffect(() => {
-    setCheckboxStates(budgets.map((budget) => budget.includeInBudget || false));
-  }, [budgets]);
+    if (billData.date) {
+      dispatch(getListOfBudgetsById(billData.date, friendId || ""));
+    }
+  }, [dispatch, billData.date]);
 
-  // Fetch categories on component mount
+  useEffect(() => {
+    if (budgets.length > 0) {
+      const newCheckboxStates = budgets.map(
+        (budget) =>
+          selectedBudgets.includes(budget.id) || budget.includeInBudget || false
+      );
+      setCheckboxStates((prev) =>
+        JSON.stringify(prev) !== JSON.stringify(newCheckboxStates)
+          ? newCheckboxStates
+          : prev
+      );
+    }
+  }, [budgets, selectedBudgets]);
+
   useEffect(() => {
     dispatch(fetchCategories(friendId || ""));
   }, [dispatch]);
 
-  // Calculate total amount from saved expenses
   useEffect(() => {
     const totalAmount = expenses.reduce(
       (sum, expense) => sum + (expense.totalPrice || 0),
       0
     );
-    setBillData((prev) => ({ ...prev, amount: totalAmount.toString() }));
+    if (billData.amount !== totalAmount.toString()) {
+      setBillData((prev) => ({ ...prev, amount: totalAmount.toString() }));
+    }
   }, [expenses]);
 
-  // Update selected budgets when checkbox states change
-  useEffect(() => {
-    const selected = budgets.filter((_, index) => checkboxStates[index]);
-    setSelectedBudgets(selected);
-  }, [checkboxStates, budgets]);
+  // useEffect(() => {
+  //   const selected = budgets.filter((_, index) => checkboxStates[index]);
+  //   setSelectedBudgets((prev) =>
+  //     JSON.stringify(prev) !== JSON.stringify(selected.map((b) => b.id))
+  //       ? selected.map((b) => b.id)
+  //       : prev
+  //   );
+  // }, [checkboxStates, budgets]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setBillData({ ...billData, [name]: value });
-
-    // Clear the error for this field when the user updates it
+    setBillData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors({ ...errors, [name]: false });
+      setErrors((prev) => ({ ...prev, [name]: false }));
     }
   };
 
   const handleTypeChange = (event, newValue) => {
     const newType = newValue || "loss";
-
-    setBillData((prev) => ({
-      ...prev,
-      type: newType,
-      // Reset payment method to first available option for the new type
-      paymentMethod: "cash", // This will be updated by the effect below
-    }));
-
+    setBillData((prev) => ({ ...prev, type: newType }));
     if (errors.type) {
-      setErrors({ ...errors, type: false });
+      setErrors((prev) => ({ ...prev, type: false }));
     }
   };
 
-  //Add useEffect to update payment method when type changes and options are available
-  useEffect(() => {
-    if (processedPaymentMethods.length > 0) {
-      // Check if current payment method is still valid for the selected type
-      const currentMethodValid = processedPaymentMethods.some(
-        (pm) => pm.value === billData.paymentMethod
-      );
-
-      // If current method is not valid, set to first available option
-      if (!currentMethodValid) {
-        setBillData((prev) => ({
-          ...prev,
-          paymentMethod: processedPaymentMethods[0]?.value || "cash",
-        }));
-      }
-    }
-  }, [processedPaymentMethods, billData.paymentMethod]);
   const handleDateChange = (newValue) => {
     if (newValue) {
       const formatted = dayjs(newValue).format("YYYY-MM-DD");
       setBillData((prev) => ({ ...prev, date: formatted }));
+      dispatch(getListOfBudgetsById(formatted, friendId || ""));
     }
-
-    // Clear the date error when the user updates it
     if (errors.date) {
-      setErrors({ ...errors, date: false });
+      setErrors((prev) => ({ ...prev, date: false }));
     }
-    const formatted = dayjs(newValue).format("YYYY-MM-DD");
-    // Dispatch getListOfBudgetsById with the selected date
-    dispatch(getListOfBudgetsById(formatted, friendId));
   };
-
-  // Handle temp expense changes in table
 
   const handleTempExpenseChange = (index, field, value) => {
     const updatedExpenses = [...tempExpenses];
 
-    // For quantity and unitPrice, ensure only positive values
     if (field === "quantity" || field === "unitPrice") {
-      // Convert to number and check if it's positive
       const numValue = parseFloat(value);
-
-      // Allow empty string for editing, but prevent negative values
       if (value === "" || numValue > 0) {
         updatedExpenses[index][field] = value;
       } else {
-        // Don't update if the value is negative or zero
         return;
       }
     } else {
       updatedExpenses[index][field] = value;
     }
 
-    // Recalculate total price when quantity or unit price changes
     if (field === "quantity" || field === "unitPrice") {
       const quantity = parseFloat(updatedExpenses[index].quantity) || 0;
       const unitPrice = parseFloat(updatedExpenses[index].unitPrice) || 0;
@@ -376,23 +374,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
     const updatedExpenses = [...tempExpenses];
     updatedExpenses[index].itemName = newValue || "";
 
-    // Recalculate total price when item name changes
     const quantity = parseFloat(updatedExpenses[index].quantity) || 1;
     const unitPrice = parseFloat(updatedExpenses[index].unitPrice) || 0;
     updatedExpenses[index].totalPrice = quantity * unitPrice;
 
     setTempExpenses(updatedExpenses);
-
-    // Mark as having unsaved changes
     setHasUnsavedExpenseChanges(true);
-
-    // Force a re-render to update the Add Row button state
-    // This ensures the validation runs immediately after item name change
-    setTimeout(() => {
-      // This will trigger a re-render and update the button state
-      setTempExpenses([...updatedExpenses]);
-    }, 0);
   };
+
   const addTempExpenseRow = () => {
     if (isCurrentRowComplete(tempExpenses[tempExpenses.length - 1])) {
       setTempExpenses([
@@ -405,19 +394,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
           comments: "",
         },
       ]);
-
-      // Mark as having unsaved changes
       setHasUnsavedExpenseChanges(true);
 
-      // Scroll to the new row and focus on item name input after state update
       setTimeout(() => {
         if (lastRowRef.current) {
           lastRowRef.current.scrollIntoView({
             behavior: "smooth",
             block: "nearest",
           });
-
-          // Focus on the item name input of the new row
           const itemNameInput = lastRowRef.current.querySelector(
             'input[placeholder="Item name"]'
           );
@@ -428,12 +412,11 @@ const CreateBill = ({ onClose, onSuccess }) => {
       }, 100);
     }
   };
+
   const removeTempExpenseRow = (index) => {
     if (tempExpenses.length > 1) {
       const updatedExpenses = tempExpenses.filter((_, i) => i !== index);
       setTempExpenses(updatedExpenses);
-
-      // Mark as having unsaved changes
       setHasUnsavedExpenseChanges(true);
     }
   };
@@ -457,27 +440,15 @@ const CreateBill = ({ onClose, onSuccess }) => {
     );
 
     if (validExpenses.length === 0) {
-      alert(
-        "Please add at least one complete expense item before saving. Item Name, Quantity, and Unit Price are all required."
-      );
+      alert("Please add at least one complete expense item before saving.");
       return;
     }
 
     setExpenses(validExpenses);
     setShowExpenseTable(false);
-
-    // Reset unsaved changes flag after successful save
     setHasUnsavedExpenseChanges(false);
-
-    // Reset temp expenses
     setTempExpenses([
-      {
-        itemName: "",
-        quantity: 1,
-        unitPrice: "",
-        totalPrice: 0,
-        comments: "",
-      },
+      { itemName: "", quantity: 1, unitPrice: "", totalPrice: 0, comments: "" },
     ]);
   };
 
@@ -487,35 +458,19 @@ const CreateBill = ({ onClose, onSuccess }) => {
     } else {
       setShowExpenseTable(true);
       setShowBudgetTable(false);
-
-      // Load existing expenses into temp if any
       if (expenses.length > 0) {
         setTempExpenses([...expenses]);
-        setHasUnsavedExpenseChanges(false); // No unsaved changes when loading existing data
+        setHasUnsavedExpenseChanges(false);
       }
-    }
-  };
-  const handleCloseExpenseTable = () => {
-    setShowExpenseTable(false);
-    // Reset temp expenses to current saved expenses
-    if (expenses.length > 0) {
-      setTempExpenses([...expenses]);
-    } else {
-      setTempExpenses([
-        { itemName: "", quantity: 1, unitPrice: "", totalPrice: 0 },
-      ]);
     }
   };
 
   const handleCloseExpenseTableWithConfirmation = () => {
-    // Check if there are unsaved changes and valid entries
     if (hasUnsavedExpenseChanges && hasValidExpenseEntries()) {
       const confirmClose = window.confirm(
-        "You have unsaved expense items. Are you sure you want to close without saving? All entered data will be lost."
+        "You have unsaved expense items. Are you sure you want to close without saving?"
       );
-
       if (confirmClose) {
-        // Reset temp expenses to initial state
         setTempExpenses([
           {
             itemName: "",
@@ -528,16 +483,15 @@ const CreateBill = ({ onClose, onSuccess }) => {
         setHasUnsavedExpenseChanges(false);
         setShowExpenseTable(false);
       }
-      // If user cancels, do nothing (keep the table open)
     } else {
-      // No unsaved changes or no valid entries, close normally
       setShowExpenseTable(false);
     }
   };
+
   const handleToggleBudgetTable = () => {
     setShowBudgetTable(!showBudgetTable);
     if (showExpenseTable) {
-      setShowExpenseTable(false); // Close expense table if open
+      setShowExpenseTable(false);
     }
   };
 
@@ -549,12 +503,10 @@ const CreateBill = ({ onClose, onSuccess }) => {
     e.preventDefault();
     const newErrors = {};
 
-    // Existing validations...
     if (!billData.name) newErrors.name = true;
     if (!billData.date) newErrors.date = true;
     if (!billData.type) newErrors.type = true;
 
-    // Validate expense items
     const validExpenses = expenses.filter(
       (expense) =>
         expense.itemName.trim() !== "" &&
@@ -570,135 +522,158 @@ const CreateBill = ({ onClose, onSuccess }) => {
 
     if (validExpenses.length === 0) {
       newErrors.expenses = true;
-      alert("At least one expense item should be added to create a bill.");
+      alert("At least one expense item should be added to update the bill.");
+    }
+
+    const invalidExpenses = expenses.filter(
+      (expense) =>
+        expense.itemName.trim() !== "" &&
+        (expense.unitPrice === "" ||
+          isNaN(parseFloat(expense.unitPrice)) ||
+          parseFloat(expense.unitPrice) <= 0 ||
+          expense.unitPrice.toString().includes("-") ||
+          expense.quantity === "" ||
+          isNaN(parseFloat(expense.quantity)) ||
+          parseFloat(expense.quantity) <= 0 ||
+          expense.quantity.toString().includes("-"))
+    );
+
+    if (invalidExpenses.length > 0) {
+      newErrors.expenses = true;
+      alert(
+        "Please enter valid positive values for both quantity and unit price."
+      );
     }
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
     try {
-      // Calculate total amount from valid expenses
-      const totalAmount = validExpenses.reduce(
-        (sum, expense) => sum + expense.totalPrice,
+      const totalAmount = expenses.reduce(
+        (sum, expense) => sum + (expense.totalPrice || 0),
         0
       );
+      const selectedBudgetIds = budgets
+        .filter((_, index) => checkboxStates[index])
+        .map((budget) => budget.id);
 
-      // Validate total amount
-      if (totalAmount <= 0) {
-        alert("Total amount must be greater than zero.");
-        return;
-      }
-
-      // Calculate net amount
-      const netAmount = totalAmount;
-
-      // Prepare bill data for submission
-      const billPayload = {
-        name: billData.name.trim(),
-        description: billData.description?.trim() || "",
+      const updatedBillData = {
+        id: currentBillId,
+        name: billData.name,
+        description: billData.description,
         amount: totalAmount,
-        netAmount: netAmount,
         paymentMethod: billData.paymentMethod,
         type: billData.type,
         date: billData.date,
-        categoryId: billData.categoryId || 0, // Use 0 instead of null
-        expenses: validExpenses.map((expense) => ({
-          itemName: expense.itemName.trim(),
-          quantity: parseFloat(expense.quantity),
-          unitPrice: parseFloat(expense.unitPrice),
-          totalPrice: expense.totalPrice,
-          comments: expense.comments?.trim() || "",
-        })),
-        budgetIds: selectedBudgets.map((budget) => budget.id) || [],
+        categoryId: billData.categoryId || 0,
+        budgetIds: selectedBudgetIds,
+        expenses: expenses,
+        netAmount: totalAmount,
         creditDue:
           billData.type === "loss" &&
           billData.paymentMethod === "creditNeedToPaid"
             ? totalAmount
             : 0,
-        includeInBudget: selectedBudgets.length > 0, // Add this field
       };
 
-      console.log("Submitting bill with payload:", billPayload);
-
-      // Dispatch the create bill action
-      const resultAction = await dispatch(
-        createBill(billPayload, friendId || "")
+      const result = await dispatch(
+        updateBill(currentBillId, updatedBillData, friendId || "")
       );
-
-      console.log("Bill creation result:", resultAction);
-
-      // Check if the action was successful
-      if (resultAction && !resultAction.error) {
-        // Success case
-        console.log("Bill created successfully:", resultAction);
-        alert("Bill created successfully!");
-
-        // Reset form data
-        setBillData({
-          name: "",
-          description: "",
-          amount: "",
-          paymentMethod: "cash",
-          type: "loss",
-          date: dateFromQuery || today,
-          categoryId: "",
-        });
-
-        // Reset expenses
-        setExpenses([]);
-        setTempExpenses([
-          { itemName: "", quantity: 1, unitPrice: "", totalPrice: 0 },
-        ]);
-
-        // Reset selected budgets
-        setSelectedBudgets([]);
-        setCheckboxStates([]);
-
-        // Reset errors
-        setErrors({});
-
-        // Reset table states
-        setShowExpenseTable(false);
-        setShowBudgetTable(false);
-        setHasUnsavedExpenseChanges(false);
-
-        // Call success callback if provided
+      if (result) {
+        alert("Bill updated successfully!");
         if (onSuccess) {
-          onSuccess(resultAction.payload || resultAction);
+          onSuccess(result);
         }
-
-        // Navigate back or close modal
         if (onClose) {
           onClose();
         } else {
           navigate(-1);
         }
-      } else {
-        // Error case - handle both rejected actions and error responses
-        const errorMessage =
-          resultAction?.error?.message ||
-          resultAction?.payload?.message ||
-          resultAction?.message ||
-          "Failed to create bill. Please try again.";
-
-        console.error("Bill creation failed:", errorMessage);
-        alert(`Error creating bill: ${errorMessage}`);
       }
     } catch (error) {
-      console.error("Error during bill submission:", error);
-      alert(
-        `Error creating bill: ${
-          error.message || "An unexpected error occurred. Please try again."
-        }`
-      );
+      console.error("Error updating bill:", error);
+      alert(`Error updating bill: ${error.message}`);
     }
   };
 
   const handleCheckboxChange = (index) => {
-    setCheckboxStates((prev) =>
-      prev.map((state, i) => (i === index ? !state : state))
-    );
+    setCheckboxStates((prevStates) => {
+      const newStates = [...prevStates];
+      newStates[index] = !newStates[index];
+      return newStates;
+    });
   };
+
+  if (isLoading) {
+    return (
+      <>
+        <div className="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>
+        <div
+          className="flex flex-col items-center justify-center"
+          style={{
+            width: "calc(100vw - 370px)",
+            height: "calc(100vh - 100px)",
+            backgroundColor: "rgb(11, 11, 11)",
+            borderRadius: "8px",
+            border: "1px solid rgb(0, 0, 0)",
+          }}
+        >
+          <CircularProgress sx={{ color: "#00DAC6" }} size={60} />
+          <p className="text-white mt-4 text-lg">Loading bill data...</p>
+        </div>
+      </>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <>
+        <div className="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>
+        <div
+          className="flex flex-col items-center justify-center"
+          style={{
+            width: "calc(100vw - 370px)",
+            height: "calc(100vh - 100px)",
+            backgroundColor: "rgb(11, 11, 11)",
+            borderRadius: "8px",
+            border: "1px solid rgb(0, 0, 0)",
+            padding: "20px",
+          }}
+        >
+          <div className="text-red-400 text-xl mb-4">⚠️ Error Loading Bill</div>
+          <p className="text-gray-400 text-center mb-6">{loadError}</p>
+          <div className="flex gap-4">
+            <Button
+              onClick={() => window.location.reload()}
+              sx={{
+                backgroundColor: "#00DAC6",
+                color: "black",
+                "&:hover": { backgroundColor: "#00b8a0" },
+              }}
+            >
+              Retry
+            </Button>
+            <Button
+              onClick={() => {
+                if (onClose) {
+                  onClose();
+                } else {
+                  navigate(-1);
+                }
+              }}
+              sx={{
+                backgroundColor: "#ff4444",
+                color: "white",
+                "&:hover": { backgroundColor: "#ff6666" },
+              }}
+            >
+              Go Back
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const renderNameInput = () => (
     <div className="flex flex-col flex-1">
@@ -725,10 +700,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
             },
             "& .MuiInputBase-input": {
               color: "#fff",
-              "&::placeholder": {
-                color: "#9ca3af",
-                opacity: 1,
-              },
+              "&::placeholder": { color: "#9ca3af", opacity: 1 },
             },
             "& .MuiOutlinedInput-root": {
               "& fieldset": {
@@ -778,19 +750,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
             },
             "& .MuiInputBase-input": {
               color: "#fff",
-              "&::placeholder": {
-                color: "#9ca3af",
-                opacity: 1,
-              },
+              "&::placeholder": { color: "#9ca3af", opacity: 1 },
             },
             "& .MuiOutlinedInput-root": {
               "& fieldset": {
                 borderColor: "rgb(75, 85, 99)",
                 borderWidth: "1px",
               },
-              "&:hover fieldset": {
-                borderColor: "rgb(75, 85, 99)",
-              },
+              "&:hover fieldset": { borderColor: "rgb(75, 85, 99)" },
               "&.Mui-focused fieldset": {
                 borderColor: "#00dac6",
                 borderWidth: "2px",
@@ -857,14 +824,9 @@ const CreateBill = ({ onClose, onSuccess }) => {
                     minHeight: 56,
                     maxHeight: 56,
                   },
-                  "& input": {
-                    height: 32,
-                    fontSize: 16,
-                  },
+                  "& input": { height: 32, fontSize: 16 },
                 },
-                inputProps: {
-                  max: dayjs().format("YYYY-MM-DD"),
-                },
+                inputProps: { max: dayjs().format("YYYY-MM-DD") },
               },
             }}
             disableFuture
@@ -900,7 +862,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
               paymentMethod: newValue ? newValue.value : "cash",
             }));
           }}
-          loading={localPaymentMethodsLoading}
+          loading={paymentMethodsLoading}
           noOptionsText={
             billData.type
               ? `No ${
@@ -917,7 +879,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
                 ...params.InputProps,
                 endAdornment: (
                   <>
-                    {localPaymentMethodsLoading ? (
+                    {paymentMethodsLoading ? (
                       <CircularProgress color="inherit" size={20} />
                     ) : null}
                     {params.InputProps.endAdornment}
@@ -933,19 +895,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
                 },
                 "& .MuiInputBase-input": {
                   color: "#fff",
-                  "&::placeholder": {
-                    color: "#9ca3af",
-                    opacity: 1,
-                  },
+                  "&::placeholder": { color: "#9ca3af", opacity: 1 },
                 },
                 "& .MuiOutlinedInput-root": {
                   "& fieldset": {
                     borderColor: "rgb(75, 85, 99)",
                     borderWidth: "1px",
                   },
-                  "&:hover fieldset": {
-                    borderColor: "rgb(75, 85, 99)",
-                  },
+                  "&:hover fieldset": { borderColor: "rgb(75, 85, 99)" },
                   "&.Mui-focused fieldset": {
                     borderColor: "#00dac6",
                     borderWidth: "2px",
@@ -954,26 +911,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
               }}
             />
           )}
-          sx={{
-            width: "100%",
-            maxWidth: "300px",
-          }}
+          sx={{ width: "100%", maxWidth: "300px" }}
         />
       </div>
-
-      {/* Error display using local state */}
-      {localPaymentMethodsError && (
+      {paymentMethodsError && (
         <div className="text-red-400 text-xs mt-1">
-          Error: {localPaymentMethodsError}
+          Error: {paymentMethodsError}
         </div>
       )}
-
-      {/* Debug info - remove in production */}
-      {/* <div className="text-gray-400 text-xs mt-1">
-        Options: {processedPaymentMethods.length} available for{" "}
-        {billData.type || "all types"}
-        {localPaymentMethodsLoading && " (Loading...)"}
-      </div> */}
     </div>
   );
 
@@ -985,12 +930,12 @@ const CreateBill = ({ onClose, onSuccess }) => {
         </label>
         <Autocomplete
           autoHighlight
-          options={typeOptions}
+          options={["gain", "loss"]}
           getOptionLabel={(option) =>
             option.charAt(0).toUpperCase() + option.slice(1)
           }
           value={billData.type || ""}
-          onChange={handleTypeChange} // Use the new handler
+          onChange={handleTypeChange}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -1006,10 +951,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
                 },
                 "& .MuiInputBase-input": {
                   color: "#fff",
-                  "&::placeholder": {
-                    color: "#9ca3af",
-                    opacity: 1,
-                  },
+                  "&::placeholder": { color: "#9ca3af", opacity: 1 },
                 },
                 "& .MuiOutlinedInput-root": {
                   "& fieldset": {
@@ -1027,10 +969,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
               }}
             />
           )}
-          sx={{
-            width: "100%",
-            maxWidth: "300px",
-          }}
+          sx={{ width: "100%", maxWidth: "300px" }}
         />
       </div>
     </div>
@@ -1071,19 +1010,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
                 },
                 "& .MuiInputBase-input": {
                   color: "#fff",
-                  "&::placeholder": {
-                    color: "#9ca3af",
-                    opacity: 1,
-                  },
+                  "&::placeholder": { color: "#9ca3af", opacity: 1 },
                 },
                 "& .MuiOutlinedInput-root": {
                   "& fieldset": {
                     borderColor: "rgb(75, 85, 99)",
                     borderWidth: "1px",
                   },
-                  "&:hover fieldset": {
-                    borderColor: "rgb(75, 85, 99)",
-                  },
+                  "&:hover fieldset": { borderColor: "rgb(75, 85, 99)" },
                   "&.Mui-focused fieldset": {
                     borderColor: "#00dac6",
                     borderWidth: "2px",
@@ -1092,16 +1026,12 @@ const CreateBill = ({ onClose, onSuccess }) => {
               }}
             />
           )}
-          sx={{
-            width: "100%",
-            maxWidth: "300px",
-          }}
+          sx={{ width: "100%", maxWidth: "300px" }}
         />
       </div>
     </div>
   );
 
-  // DataGrid columns for budgets
   const dataGridColumns = [
     {
       field: "includeInBudget",
@@ -1151,7 +1081,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
     { field: "amount", headerName: "Amount", flex: 1, minWidth: 100 },
   ];
 
-  // DataGrid rows for budgets
   const dataGridRows = Array.isArray(budgets)
     ? budgets.map((item, index) => ({
         ...item,
@@ -1161,14 +1090,12 @@ const CreateBill = ({ onClose, onSuccess }) => {
       }))
     : [];
 
-  // Map checkboxStates to DataGrid selection model
   const selectedIds = dataGridRows
     .filter((_, idx) => checkboxStates[idx])
     .map((row) => row.id);
 
   const handleDataGridSelection = (newSelection) => {
-    // Map DataGrid selection to checkboxStates
-    const newCheckboxStates = dataGridRows.map((row, idx) =>
+    const newCheckboxStates = dataGridRows.map((row) =>
       newSelection.includes(row.id)
     );
     setCheckboxStates(newCheckboxStates);
@@ -1178,7 +1105,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
     <>
       <div className="w-[calc(100vw-350px)] h-[50px] bg-[#1b1b1b]"></div>
       <div
-        className="flex flex-col relative create-bill-container"
+        className="flex flex-col relative edit-bill-container"
         style={{
           width: "calc(100vw - 370px)",
           height: "calc(100vh - 100px)",
@@ -1190,7 +1117,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
         }}
       >
         <div className="w-full flex justify-between items-center mb-1">
-          <p className="text-white font-extrabold text-4xl">Create Bill</p>
+          <p className="text-white font-extrabold text-4xl">Edit Bill</p>
           <button
             onClick={() => {
               if (onClose) {
@@ -1220,7 +1147,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
           </div>
         </div>
 
-        {/* Action Buttons - Same Line */}
         <div className="mt-6 flex justify-between items-center">
           <Button
             onClick={handleToggleBudgetTable}
@@ -1228,9 +1154,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
             sx={{
               backgroundColor: showBudgetTable ? "#00b8a0" : "#00DAC6",
               color: "black",
-              "&:hover": {
-                backgroundColor: "#00b8a0",
-              },
+              "&:hover": { backgroundColor: "#00b8a0" },
             }}
           >
             {showBudgetTable ? "Hide" : "Link"} Budgets
@@ -1242,16 +1166,13 @@ const CreateBill = ({ onClose, onSuccess }) => {
             sx={{
               backgroundColor: showExpenseTable ? "#00b8a0" : "#00DAC6",
               color: "black",
-              "&:hover": {
-                backgroundColor: "#00b8a0",
-              },
+              "&:hover": { backgroundColor: "#00b8a0" },
             }}
           >
-            {showExpenseTable ? "Hide" : "Add"} Expense Items
+            {showExpenseTable ? "Hide" : "Edit"} Expense Items
           </Button>
         </div>
 
-        {/* Budget Table Section - Only show when showBudgetTable is true and expense table is closed */}
         {showBudgetTable && !showExpenseTable && (
           <div className="mt-6">
             <div className="flex justify-between items-center mb-4">
@@ -1261,10 +1182,8 @@ const CreateBill = ({ onClose, onSuccess }) => {
               <IconButton
                 onClick={handleCloseBudgetTable}
                 sx={{
-                  color: "#ff4444", // Changed color to red
-                  "&:hover": {
-                    backgroundColor: "#ff444420", // Light red hover effect
-                  },
+                  color: "#ff4444",
+                  "&:hover": { backgroundColor: "#ff444420" },
                 }}
               >
                 <CloseIcon />
@@ -1304,9 +1223,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
                   onRowSelectionModelChange={handleDataGridSelection}
                   pageSizeOptions={[5, 10, 20]}
                   initialState={{
-                    pagination: {
-                      paginationModel: { page: 0, pageSize: 5 },
-                    },
+                    pagination: { paginationModel: { page: 0, pageSize: 5 } },
                   }}
                   rowHeight={42}
                   headerHeight={32}
@@ -1324,20 +1241,17 @@ const CreateBill = ({ onClose, onSuccess }) => {
           </div>
         )}
 
-        {/* Expense Items Table Section - Show when showExpenseTable is true */}
         {showExpenseTable && !showBudgetTable && (
           <div className="mt-6 flex-1 flex flex-col min-h-0">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-white text-xl font-semibold">
-                Expense Items
+                Edit Expense Items
               </h3>
               <IconButton
-                onClick={handleCloseExpenseTableWithConfirmation} // Use the new function
+                onClick={handleCloseExpenseTableWithConfirmation}
                 sx={{
                   color: "#ff4444",
-                  "&:hover": {
-                    backgroundColor: "#ff444420",
-                  },
+                  "&:hover": { backgroundColor: "#ff444420" },
                 }}
               >
                 <CloseIcon />
@@ -1345,7 +1259,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
             </div>
 
             <div className="bg-[#29282b] rounded border border-gray-600 px-3 pt-3 flex-1 flex flex-col min-h-0">
-              {/* Table Header - Updated */}
               <div className="grid grid-cols-6 gap-3 mb-3 pb-2 border-b border-gray-600">
                 <div className="text-white font-semibold text-sm col-span-1">
                   Item Name *
@@ -1359,7 +1272,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                 <div className="text-white font-semibold text-sm col-span-1">
                   Total Price
                 </div>
-
                 <div className="text-white font-semibold text-sm col-span-1">
                   Comments
                 </div>
@@ -1388,7 +1300,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           : "bg-[#1b1b1b]"
                       }`}
                     >
-                      {/* Item Name Autocomplete - Updated */}
                       <div className="col-span-1">
                         <ItemNameAutocomplete
                           value={expense.itemName}
@@ -1399,8 +1310,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           autoFocus={isLastRow && expense.itemName === ""}
                         />
                       </div>
-
-                      {/* Quantity Input - Updated with positive value validation */}
                       <div className="col-span-1">
                         <input
                           type="number"
@@ -1408,7 +1317,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           value={expense.quantity}
                           onChange={(e) => {
                             const value = e.target.value;
-                            // Allow empty string or positive numbers only
                             if (
                               value === "" ||
                               (parseFloat(value) > 0 && !value.includes("-"))
@@ -1417,7 +1325,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                             }
                           }}
                           onKeyDown={(e) => {
-                            // Prevent entering negative sign, 'e', 'E', '+', and '.'
                             if (["-", "e", "E", "+", "."].includes(e.key)) {
                               e.preventDefault();
                             }
@@ -1433,8 +1340,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           step="1"
                         />
                       </div>
-
-                      {/* Unit Price Input - Updated with positive value validation */}
                       <div className="col-span-1">
                         <input
                           type="number"
@@ -1442,7 +1347,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           value={expense.unitPrice}
                           onChange={(e) => {
                             const value = e.target.value;
-                            // Allow empty string or positive numbers only
                             if (
                               value === "" ||
                               (parseFloat(value) > 0 && !value.includes("-"))
@@ -1455,7 +1359,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                             }
                           }}
                           onKeyDown={(e) => {
-                            // Prevent entering negative sign, 'e', 'E', '+'
                             if (["-", "e", "E", "+"].includes(e.key)) {
                               e.preventDefault();
                             }
@@ -1469,8 +1372,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           step="0.01"
                         />
                       </div>
-
-                      {/* Total Price Input */}
                       <div className="col-span-1">
                         <input
                           type="text"
@@ -1479,8 +1380,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           className="w-full px-3 py-2 rounded bg-[#333] text-gray-400 cursor-not-allowed text-sm"
                         />
                       </div>
-
-                      {/* Comments Input */}
                       <div className="col-span-1">
                         <input
                           type="text"
@@ -1496,8 +1395,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                           className="w-full px-3 py-2 rounded bg-[#29282b] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00dac6] text-sm"
                         />
                       </div>
-
-                      {/* Actions */}
                       <div className="col-span-1 flex gap-2">
                         <IconButton
                           onClick={() => removeTempExpenseRow(index)}
@@ -1523,7 +1420,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                 })}
               </div>
 
-              {/* Add Row Button and Actions - Fixed at bottom */}
               <div className="mt-4 pt-4 border-t border-gray-600">
                 <div className="flex justify-between items-center mb-4">
                   <div className="flex flex-col">
@@ -1564,18 +1460,14 @@ const CreateBill = ({ onClose, onSuccess }) => {
                     >
                       Add Row
                     </Button>
-
                     {!isCurrentRowComplete(
                       tempExpenses[tempExpenses.length - 1]
                     ) && (
                       <div className="text-red-400 text-xs mt-1">
-                        Complete the current item (Item Name, Quantity, and Unit
-                        Price are all required) to add more rows
+                        Complete the current item to add more rows
                       </div>
                     )}
                   </div>
-
-                  {/* Total Summary - Centered */}
                   {tempExpenses.length > 0 && (
                     <div className="text-white font-semibold">
                       Total Amount: ₹
@@ -1587,18 +1479,15 @@ const CreateBill = ({ onClose, onSuccess }) => {
                         .toFixed(2)}
                     </div>
                   )}
-
                   <div className="flex gap-2">
                     <Button
-                      onClick={handleCloseExpenseTableWithConfirmation} // Use the new function
+                      onClick={handleCloseExpenseTableWithConfirmation}
                       sx={{
                         backgroundColor: "#ff4444",
                         color: "white",
                         fontSize: "0.875rem",
                         padding: "6px 12px",
-                        "&:hover": {
-                          backgroundColor: "#ff6666",
-                        },
+                        "&:hover": { backgroundColor: "#ff6666" },
                       }}
                       size="small"
                     >
@@ -1609,16 +1498,13 @@ const CreateBill = ({ onClose, onSuccess }) => {
                       sx={{
                         backgroundColor: "#00DAC6",
                         color: "black",
-                        "&:hover": {
-                          backgroundColor: "#00b8a0",
-                        },
+                        "&:hover": { backgroundColor: "#00b8a0" },
                         fontSize: "0.875rem",
-
                         padding: "6px 12px",
                       }}
                       size="small"
                     >
-                      Save Expenses
+                      Save Changes
                     </Button>
                   </div>
                 </div>
@@ -1626,8 +1512,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
             </div>
           </div>
         )}
-
-        {/* Expense Items Summary - Show when not in table view */}
 
         {!showExpenseTable && !showBudgetTable && (
           <div className="mt-4">
@@ -1640,7 +1524,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                   {expenses.length} item{expenses.length !== 1 ? "s" : ""} added
                 </span>
               </div>
-
               {expenses.length === 0 ? (
                 <div
                   className="text-center py-4"
@@ -1656,12 +1539,11 @@ const CreateBill = ({ onClose, onSuccess }) => {
                     ⚠️ No expense items added yet
                   </p>
                   <p className="text-gray-400 text-xs">
-                    At least one expense item is required to create a bill
+                    At least one expense item is required to update the bill
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {/* Responsive grid container for expense items - Reduced height */}
                   <div
                     className="max-h-80 overflow-y-auto pr-2"
                     style={{
@@ -1670,14 +1552,12 @@ const CreateBill = ({ onClose, onSuccess }) => {
                       scrollbarColor: "#00dac6 #1b1b1b",
                     }}
                   >
-                    {/* Grid layout: 1 column on mobile, 2 on tablet, 3 on desktop */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                       {expenses.map((expense, index) => (
                         <div
                           key={index}
                           className="bg-[#1b1b1b] rounded-lg p-3 border border-gray-700 hover:border-gray-600 transition-colors"
                         >
-                          {/* Item header with name and total */}
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex-1 min-w-0">
                               <h5
@@ -1694,8 +1574,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                               #{index + 1}
                             </div>
                           </div>
-
-                          {/* Item details - Stacked layout for better fit */}
                           <div className="space-y-2 text-xs">
                             <div className="flex justify-between">
                               <span className="text-gray-400">Quantity:</span>
@@ -1719,8 +1597,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                               </span>
                             </div>
                           </div>
-
-                          {/* Comments section (if exists) */}
                           {expense.comments &&
                             expense.comments.trim() !== "" && (
                               <div className="mt-2 pt-2 border-t border-gray-700">
@@ -1736,8 +1612,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
                       ))}
                     </div>
                   </div>
-
-                  {/* Total summary section */}
                   <div className="border-t border-gray-600 pt-3 mt-3">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400 font-medium text-sm">
@@ -1756,6 +1630,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
             </div>
           </div>
         )}
+
         <div className="w-full flex justify-end mt-4 sm:mt-8">
           <button
             onClick={handleSubmit}
@@ -1765,7 +1640,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
             {billLoading ? (
               <CircularProgress size={20} color="inherit" />
             ) : (
-              "Submit"
+              "Update"
             )}
           </button>
         </div>
@@ -1777,7 +1652,6 @@ const CreateBill = ({ onClose, onSuccess }) => {
             background-size: 18px;
             filter: invert(1) brightness(100) contrast(100);
           }
-        
           input[type="number"]::-webkit-outer-spin-button,
           input[type="number"]::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -1814,7 +1688,7 @@ const CreateBill = ({ onClose, onSuccess }) => {
             background: #00b8a0;
           }
           @media (max-width: 640px) {
-            .create-bill-container {
+            .edit-bill-container {
               width: 100vw !important;
               height: auto !important;
               padding: 16px;
@@ -1890,4 +1764,4 @@ const CreateBill = ({ onClose, onSuccess }) => {
   );
 };
 
-export default CreateBill;
+export default EditBill;

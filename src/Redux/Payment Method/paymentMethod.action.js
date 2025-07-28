@@ -15,6 +15,9 @@ import {
   UPDATE_PAYMENT_METHOD_REQUEST,
   UPDATE_PAYMENT_METHOD_SUCCESS,
   UPDATE_PAYMENT_METHOD_FAILURE,
+  GET_ALL_PAYMENT_METHOD_REQUEST,
+  GET_ALL_PAYMENT_METHOD_SUCCESS,
+  GET_ALL_PAYMENT_METHOD_FAILURE,
 } from "./paymentMethod.actionType";
 
 export const fetchPaymentMethodsWithExpenses =
@@ -23,11 +26,11 @@ export const fetchPaymentMethodsWithExpenses =
     try {
       const endpoint =
         friendId && friendId !== "undefined"
-          ? `/api/expenses/all-by-payment-method/detailed/filtered/friend/${friendId}`
+          ? `/api/expenses/all-by-payment-method/detailed/filtered`
           : "/api/expenses/all-by-payment-method/detailed/filtered";
 
       const { data } = await api.get(endpoint, {
-        params: { rangeType, offset, flowType },
+        params: { rangeType, offset, flowType, targetId: friendId },
       });
 
       dispatch({
@@ -98,7 +101,7 @@ export const fetchPaymentMethodByTargetId =
 
     try {
       const response = await api.get(
-        `/api/payment-methods/${paymentMethodId}?targetId=${targetId}`
+        `api/payment-methods/${paymentMethodId}?targetId=${targetId}`
       );
 
       console.log("Payment Method By Target ID Response:", response.data);
@@ -146,3 +149,31 @@ export const updatePaymentMethod =
       throw error;
     }
   };
+
+export const fetchAllPaymentMethods = (targetId) => async (dispatch) => {
+  dispatch({ type: GET_ALL_PAYMENT_METHOD_REQUEST });
+
+  try {
+    const response = await api.get(`api/payment-methods`, {
+      params: { targetId },
+    });
+
+    console.log("Payment Method By Target ID Response:", response.data);
+    dispatch({
+      type: GET_ALL_PAYMENT_METHOD_SUCCESS,
+      payload: response.data,
+    });
+
+    // Return the response data so it can be used in the component
+    return response.data;
+  } catch (error) {
+    console.error("Error in fetchPaymentMethodByTargetId:", error);
+    dispatch({
+      type: GET_ALL_PAYMENT_METHOD_FAILURE,
+      payload: error.response?.data?.message || error.message,
+    });
+
+    // Re-throw the error so it can be caught in the component
+    throw error;
+  }
+};
